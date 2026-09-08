@@ -1,0 +1,298 @@
+"""ScriptAgents 編劇室 — 11 個 agent 嘅 prompt 合約。
+
+TradingAgents 概念移植：
+  分析師團隊（人物/受眾/結構）→ 力挺派 vs 挑刺派辯論 → 統籌拍板
+  → 主筆編劇（唯一執筆者，temp 0.8）→ 監製風控 → Showrunner 終審 → 模擬圍讀
+
+設計原則：
+  - 分析/風控/終審 temp 0.1-0.3（求穩）；辯論 0.5；主筆 0.7-0.8（求靈）
+  - 全部結構化輸出走 JSON（extract_json 容錯解析）
+  - 論點取捨有 decision log（每個 accept/reject 附理由 — 可追溯）
+"""
+from __future__ import annotations
+
+import json
+import re
+
+from .llm import chat
+from .masters import style_brief
+
+# ── JSON 容錯解析 ─────────────────────────────────────────
+
+def extract_json(text: str):
+    """由 LLM 回覆度抽 JSON：先剝 code fence，再用 raw_decode 由第一個括號開始。"""
+    text = re.sub(r"```(?:json)?\s*", "", text)
+    text = text.replace("```", "")
+    for opener, closer in (("{", "}"), ("[", "]")):
+        start = text.find(opener)
+        if start == -1:
+            continue
+        try:
+            obj, _ = json.JSONDecoder().raw_decode(text[start:])
+            return obj
+        except json.JSONDecodeError:
+            continue
+    raise ValueError(f"抽唔到 JSON：{text[:200]}...")
+
+
+def call_agent(step: str, system: str, user: str, temp: float, max_tokens: int, trace: list):
+    """統一 agent 調用 + trace 記賬（step 名、耗時、tokens）。"""
+    content, usage = chat(system, user, temperature=temp, max_tokens=max_tokens)
+    trace.append({
+        "step": step,
+        "seconds": usage["seconds"],
+        "tokens": usage["completion_tokens"],
+        "reasoning": usage["reasoning_tokens"],
+    })
+    return content
+
+
+# ── 分析師團隊（temp 0.3）─────────────────────────────────
+
+def analyst_character(logline: str, genre: str, trace: list) -> dict:
+    sys_ = "你係 ScriptAgents 編劇室嘅人物分析師。只輸出 JSON，唔好輸出其他嘢。"
+    usr = f"""Logline：{logline}
+類型：{genre}
+
+分析呢個故事嘅人物骨架，輸出 JSON：
+{{
+  "protagonist": {{"name_suggestion": "", "desire": "", "fear": "", "flaw": "", "arc": ""}},
+  "antagonist": {{"name_suggestion": "", "goal": "", "why_they_think_they_are_right": ""}},
+  "pressure_source": "呢個故事最致命嘅壓力來源",
+  "central_relationship": "最有力嘅人物關係軸",
+  "casting_hooks": ["三個選角/寫戲時最搶眼嘅人物瞬間"]
+}}"""
+    return extract_json(call_agent("analyst_character", sys_, usr, 0.3, 3000, trace))
+
+
+def analyst_audience(logline: str, genre: str, trace: list) -> dict:
+    sys_ = "你係 ScriptAgents 編劇室嘅受眾分析師。只輸出 JSON，唔好輸出其他嘢。"
+    usr = f"""Logline：{logline}
+類型：{genre}
+
+分析目標受眾，輸出 JSON：
+{{
+  "target_audience": "",
+  "platform": "最適合嘅平台/載體（劇集/電影/微短劇）",
+  "payoff_expectations": ["觀眾入場最想睇到嘅三樣嘢"],
+  "genre_conventions_to_honor": ["必須遵守嘅類型慣例"],
+  "genre_conventions_to_subvert": ["可以反套路上位嘅位"],
+  "taboo_risks": ["呢個題材最易踩嘅受眾雷區"]
+}}"""
+    return extract_json(call_agent("analyst_audience", sys_, usr, 0.3, 2500, trace))
+
+
+def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -> dict:
+    sys_ = "你係 ScriptAgents 編劇室嘅結構分析師。只輸出 JSON，唔好輸出其他嘢。"
+    usr = f"""Logline：{logline}
+類型：{genre}
+預計場數：{scene_count}
+
+設計節拍骨架（輸出 JSON）：
+{{
+  "opening_hook": "開場 30 秒點樣抓住觀眾",
+  "inciting_incident": "",
+  "midpoint_reversal": "中點反轉",
+  "low_point": "低谷",
+  "climax": "",
+  "resolution": "結尾（唔好預支大團圓，留餘味）",
+  "act_breaks": ["每個轉折位一句話"]
+}}"""
+    return extract_json(call_agent("analyst_structure", sys_, usr, 0.3, 3000, trace))
+
+
+# ── 力挺派 vs 挑刺派辯論（temp 0.5）───────────────────────
+
+def bull_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
+    sys_ = "你係編劇室嘅力挺派研究員（Bull Researcher）。你嘅職責係論證呢個故事最值得寫。只輸出 JSON。"
+    usr = f"""Logline：{logline}
+類型：{genre}
+分析師報告：{json.dumps(analyses, ensure_ascii=False)}
+
+提出三個「呢個故事非寫不可」嘅最強論點，輸出 JSON：
+{{
+  "arguments": [
+    {{"point": "", "evidence": "點解成立（引用分析師報告）", "how_to_execute": "執行要訣"}},
+    {{"point": "", "evidence": "", "how_to_execute": ""}},
+    {{"point": "", "evidence": "", "how_to_execute": ""}}
+  ],
+  "one_line_pitch": "用一句話講服 Showrunner 俾錢開機"
+}}"""
+    return extract_json(call_agent("bull_researcher", sys_, usr, 0.5, 3000, trace))
+
+
+def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
+    sys_ = "你係編劇室嘅挑刺派研究員（Bear Researcher）。你嘅職責係搵出呢個故事最易寫壞嘅位。不留情面，但每個批評都要附補救方案。只輸出 JSON。"
+    usr = f"""Logline：{logline}
+類型：{genre}
+分析師報告：{json.dumps(analyses, ensure_ascii=False)}
+
+提出三個最大嘅「會寫壞」風險，輸出 JSON：
+{{
+  "risks": [
+    {{"risk": "", "why_it_fails": "點解會死（引用分析師報告/類型常識）", "remedy": "具體補救方案"}},
+    {{"risk": "", "why_it_fails": "", "remedy": ""}},
+    {{"risk": "", "why_it_fails": "", "remedy": ""}}
+  ],
+  "kill_shot": "如果只可以改一樣嘢，改呢樣："
+}}"""
+    return extract_json(call_agent("bear_researcher", sys_, usr, 0.5, 3000, trace))
+
+
+# ── 統籌拍板（temp 0.2 — 委員會終結者）───────────────────
+
+def script_manager(logline: str, genre: str, master_name: str, analyses: dict,
+                   bull: dict, bear: dict, scene_count: int, trace: list) -> dict:
+    sys_ = ("你係編劇室嘅統籌（Script Manager）。辯論唔係為咗共識，係為咗拍板。"
+            "你逐條論點取捨，每個決定寫低理由，形成一份冇歧義嘅創作指令交畀主筆。只輸出 JSON。")
+    usr = f"""Logline：{logline}
+類型：{genre}
+大師手法：{style_brief(master_name)}
+分析師報告：{json.dumps(analyses, ensure_ascii=False)}
+力挺派論點：{json.dumps(bull, ensure_ascii=False)}
+挑刺派風險：{json.dumps(bear, ensure_ascii=False)}
+預計場數：{scene_count}
+
+拍板，輸出 JSON：
+{{
+  "decisions": [
+    {{"topic": "", "verdict": "ACCEPT | REJECT | MODIFY", "reason": "", "instruction": "落實到指令層面嘅一句話"}},
+    ...（逐條論點/風險都要有取捨）
+  ],
+  "beat_sheet": ["{scene_count} 個節拍，每個一句話，對應場次結構"],
+  "style_directives": ["畀主筆嘅風格指令（含大師手法要求）"],
+  "danger_list": ["主筆唔可以掂嘅雷區"],
+  "protagonist_lock": {{"name": "", "desire": "", "flaw": ""}},
+  "tone": ""
+}}"""
+    return extract_json(call_agent("script_manager", sys_, usr, 0.2, 4000, trace))
+
+
+# ── 主筆編劇（唯一執筆者 · temp 0.8）─────────────────────
+
+def head_writer_outline(logline: str, genre: str, master_name: str, directive: dict,
+                        scene_count: int, trace: list) -> dict:
+    sys_ = ("你係編劇室嘅主筆編劇（Head Writer）。全室得你一枝筆，統籌指令係聖旨，"
+            "大師手法係你嘅筆法。先出分場大綱。只輸出 JSON。")
+    usr = f"""Logline：{logline}
+類型：{genre}
+大師手法：{style_brief(master_name)}
+統籌創作指令：{json.dumps(directive, ensure_ascii=False)}
+
+寫一份 {scene_count} 場嘅分場大綱，輸出 JSON：
+{{
+  "title": "劇名",
+  "scenes": [
+    {{
+      "no": 1,
+      "heading": "INT./EXT. 場景 - 日/夜",
+      "summary": "呢場做乜（兩句內）",
+      "beats": ["場內節拍"],
+      "exit_hook": "觀眾點解要追落去",
+      "purpose": "呢場喺結構上嘅功能"
+    }},
+    ...
+  ],
+  "series_engine": "如果拍成劇集，呢個故事嘅持續引擎係乜"
+}}"""
+    return extract_json(call_agent("head_writer_outline", sys_, usr, 0.7, 6000, trace))
+
+
+def head_writer_scene(logline: str, genre: str, master_name: str, directive: dict,
+                      outline: dict, scene_no: int, trace: list) -> str:
+    scene = next((s for s in outline.get("scenes", []) if int(s.get("no", 0)) == scene_no), None)
+    sys_ = ("你係編劇室嘅主筆編劇（Head Writer）。執筆寫第 {n} 場完整劇本。"
+            "劇本格式：場景 heading · 動作描寫（現在式）· 角色名大寫企中 · 對白。"
+            "統籌指令係聖旨，禁忌唔可以掂。只輸出劇本本文，唔好輸出任何解釋。").format(n=scene_no)
+    usr = f"""Logline：{logline}
+類型：{genre}
+大師手法：{style_brief(master_name)}
+統籌創作指令：{json.dumps(directive, ensure_ascii=False)}
+分場大綱：{json.dumps(outline.get("scenes", []), ensure_ascii=False)}
+
+本場大綱：{json.dumps(scene, ensure_ascii=False)}
+
+寫第 {scene_no} 場完整劇本（中文 1500-2500 字，約 2-4 頁）。
+要求：
+1. 跟足本場大綱嘅節拍同 exit hook
+2. 對白要有人聲區分（每個角色講嘢方式唔同）
+3. 大師手法嘅對白法則全程生效
+4. 動作描寫係畫面（可拍），唔係小說心理描寫
+5. 場景 heading 用標準格式：INT./EXT. 地點 - 日/夜"""
+    return call_agent("head_writer_scene", sys_, usr, 0.8, 8000, trace)
+
+
+# ── 監製風控組（temp 0.1 — 求穩）─────────────────────────
+
+def risk_team(logline: str, directive: dict, outline: dict, scene_text: str,
+              master_name: str, trace: list) -> dict:
+    sys_ = ("你係編劇室嘅監製風控組（Risk Team）。你唔改稿，只出紅旗報告："
+            "連戲、邏輯、對白資訊量、節奏、拍攝可行性。只輸出 JSON。")
+    usr = f"""Logline：{logline}
+大師手法禁忌：{style_brief(master_name)}
+統籌指令（雷區）：{json.dumps(directive.get('danger_list', []), ensure_ascii=False)}
+分場大綱：{json.dumps(outline.get('scenes', []), ensure_ascii=False)}
+
+第 1 場劇本：
+{scene_text}
+
+紅旗審查，輸出 JSON：
+{{
+  "flags": [
+    {{"type": "CONTINUITY | LOGIC | EXPOSITION | PACING | BUDGET | TABOO", "severity": "HIGH | MED | LOW", "issue": "", "suggestion": ""}}
+  ],
+  "taboo_violations": ["統籌雷區違規（冇就空 array）"],
+  "greenlights": ["明顯過關嘅位"],
+  "overall": "一段總結"
+}}"""
+    return extract_json(call_agent("risk_team", sys_, usr, 0.1, 3000, trace))
+
+
+# ── Showrunner 終審（temp 0.2）───────────────────────────
+
+def showrunner(logline: str, genre: str, master_name: str, directive: dict,
+               outline: dict, scene_text: str, risk: dict, trace: list) -> dict:
+    sys_ = ("你係 Showrunner（終審）。你有 5 個評分維度：結構、人物、對白、手法忠實度、商業爽點。"
+            "判決只有 PASS 定 REVISE（附 revision notes）。只輸出 JSON。")
+    usr = f"""Logline：{logline}
+類型：{genre}
+大師手法：{style_brief(master_name)}
+統籌指令：{json.dumps(directive, ensure_ascii=False)}
+分場大綱：{json.dumps(outline.get('scenes', []), ensure_ascii=False)}
+第 1 場劇本：{scene_text}
+風控報告：{json.dumps(risk, ensure_ascii=False)}
+
+終審判決，輸出 JSON：
+{{
+  "decision": "PASS | REVISE",
+  "scores": {{"structure": 0, "characters": 0, "dialogue": 0, "style_fidelity": 0, "commercial_payoff": 0}},
+  "verdict_line": "一句判語",
+  "highlights": ["最亮嘅位"],
+  "revision_notes": ["如果 REVISE，要改乜（PASS 就空 array）"],
+  "next_episode_hook": "呢集寫完，下一場最想睇乜"
+}}"""
+    return extract_json(call_agent("showrunner", sys_, usr, 0.2, 3000, trace))
+
+
+# ── 模擬圍讀（temp 0.7 — 反饋迴路）───────────────────────
+
+def table_read(logline: str, genre: str, outline: dict, scene_text: str,
+               verdict: dict, trace: list) -> dict:
+    sys_ = ("你係模擬圍讀主持人。三個 persona 朗讀完劇本後俾反應："
+            "① 目標觀眾（反應直接、殘酷誠實）② 執行監製（諗錢同拍攝）"
+            "③ 老戲骨演員（諗角色可唔可以演、對白順唔順口）。只輸出 JSON。")
+    usr = f"""Logline：{logline}
+類型：{genre}
+分場大綱：{json.dumps(outline.get('scenes', []), ensure_ascii=False)}
+第 1 場劇本：
+{scene_text}
+Showrunner 判決：{json.dumps(verdict, ensure_ascii=False)}
+
+三個 persona 嘅圍讀反應，輸出 JSON：
+{{
+  "audience": {{"reaction": "", "quote": "佢最記得嘅一句台詞/畫面", "worry": ""}},
+  "line_producer": {{"reaction": "", "cost_note": "", "worry": ""}},
+  "veteran_actor": {{"reaction": "", "mouth_feel": "對白讀出口嘅手感", "worry": ""}},
+  "room_temperature": "成個房嘅溫度總結（一句）"
+}}"""
+    return extract_json(call_agent("table_read", sys_, usr, 0.7, 3000, trace))

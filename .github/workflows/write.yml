@@ -1,0 +1,93 @@
+name: 編劇室開工
+
+# 排程鐵律：GitHub cron 會排隊延遲 — 一律由 cron-job.org ping
+# Cloudflare Worker (scriptagents-web) 觸發 workflow_dispatch，唔用 GitHub schedule。
+on:
+  workflow_dispatch:
+    inputs:
+      logline:
+        description: "故事 Logline（auto 模式可留空）"
+        required: false
+        default: ""
+      genre:
+        description: "類型"
+        required: false
+        default: "警匪"
+      master:
+        description: "大師手法"
+        required: false
+        default: "杜琪峯"
+      notes:
+        description: "自由備註"
+        required: false
+        default: ""
+      auto:
+        description: "每日自動班（輪選 logline）"
+        required: false
+        default: "false"
+
+# commit-back（outputs + site）需要 write 權限
+permissions:
+  contents: write
+
+env:
+  MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+  MINIMAX_MODEL: MiniMax-M3
+
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # 零第三方依賴（純 stdlib）— 唔使 pip install
+
+      - name: 編劇室開工
+        # inputs 經 env 傳入（避免 logline 入面嘅引號炸 shell）
+        env:
+          IN_LOGLINE: ${{ inputs.logline }}
+          IN_GENRE: ${{ inputs.genre }}
+          IN_MASTER: ${{ inputs.master }}
+          IN_NOTES: ${{ inputs.notes }}
+          IN_AUTO: ${{ inputs.auto }}
+        run: |
+          if [ "$IN_AUTO" = "true" ]; then
+            python -m pipeline.run --auto
+          else
+            python -m pipeline.run \
+              --logline "$IN_LOGLINE" \
+              --genre "$IN_GENRE" \
+              --master "$IN_MASTER" \
+              --notes "$IN_NOTES"
+          fi
+
+      - name: Commit 劇本 + 網站返 repo
+        if: always()
+        run: |
+          git config user.name "AI 編劇室 CI"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f outputs/ site/index.html config/logline_queue.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "無新內容可 commit"
+          else
+            git commit -m "ci: 編劇室出品 $(date -u '+%Y-%m-%d %H:%M UTC') [skip ci]"
+            for i in 1 2 3; do
+              if git pull --rebase origin main && git push; then
+                echo "✓ 已 commit 返 repo"
+                exit 0
+              fi
+              echo "⚠ push/rebase 第 $i 次失敗 — abort + merge -X ours 重試"
+              git rebase --abort 2>/dev/null || true
+              git pull --no-rebase -X ours origin main || { echo "::error::merge fallback 失敗"; exit 1; }
+              git push && { echo "✓ 已 commit（merge fallback）"; exit 0; }
+            done
+            echo "::error::三次重試都失敗，今次未 push"
+            exit 1
+          fi

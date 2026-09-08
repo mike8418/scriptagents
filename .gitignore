@@ -1,0 +1,10 @@
+# Secrets / 本地雜物
+.env
+*.pyc
+__pycache__/
+.DS_Store
+
+# wrangler 本地狀態
+.wrangler/
+
+# outputs/ 由 CI commit 返 repo（Worker 要 serve）— 唔 ignore
