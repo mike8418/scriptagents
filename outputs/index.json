@@ -1,5 +1,16 @@
 [
   {
+    "run_id": "20260909_0237",
+    "finished_at": "2026-09-09 02:50 HKT",
+    "title": "AVA",
+    "logline": "2027 年，一個 AI 配音員發現自己把聲被用嚟做假新聞主播，追查落去發現「佢」本人原來都係合成出嚟嘅。",
+    "genre": "科幻",
+    "master": "韋家輝",
+    "decision": "PASS",
+    "auto": false,
+    "elapsed_seconds": 783.4
+  },
+  {
     "run_id": "20260909_0226",
     "finished_at": "2026-09-09 02:32 HKT",
     "title": "白幡",

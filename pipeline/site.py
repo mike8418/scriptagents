@@ -116,7 +116,7 @@ def build(state: dict, index: list) -> None:
     hist_html = "".join(
         f'<tr><td class="muted">{esc(h["run_id"])}</td><td><b>{esc(h.get("title",""))}</b></td>'
         f'<td>{esc(h.get("genre",""))} · {esc(h.get("master",""))}</td>'
-        f'<td><span class="vd vd-{esc(h.get("decision","").lower())}">{esc(h.get("decision",""))}</span></td></tr>'
+        f'<td><span class="vd vd-{esc(str(h.get("decision","")).lower().replace("_final",""))}">{esc(h.get("decision",""))}</span></td></tr>'
         for h in index[:15]
     )
 
@@ -130,6 +130,24 @@ def build(state: dict, index: list) -> None:
 
     decision = v.get("decision", "")
     dec_badge = f'<span class="big-badge {"badge-pass" if decision == "PASS" else "badge-revise"}">{esc(decision)}</span>'
+    frozen_note = (
+        '<p style="font-size:13px;color:var(--amber);margin-top:8px">❄ 修稿上限（2 次）已用盡 — '
+        '凍結照出街，等老闆人手裁決</p>' if v.get("frozen") else ""
+    )
+    revision_note = ""
+    rc = state.get("revision_count", 0)
+    if rc:
+        revision_note = (
+            '<p style="font-size:12.5px;color:var(--muted);margin-top:6px">'
+            f'經 {rc} 次修稿迴圈（主筆覆寫 → Showrunner 覆審）後定案</p>'
+        )
+    validation_html = ""
+    cv = _d(state.get("config_validation", {}))
+    cv_items = [f'⚠️ {esc(w)}' for w in cv.get("warnings", [])]
+    cv_items += [f'🔧 {esc(a)}' for a in cv.get("adjustments", [])]
+    if cv_items:
+        validation_html = '<div class="chips" style="margin-top:10px">' + "".join(
+            f"<span>{x}</span>" for x in cv_items) + "</div>"
 
     page = f"""<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -238,6 +256,7 @@ footer {{ text-align:center; color:var(--muted); font-size:12px; margin-top:56px
       場數 <b>{len(o.get("scenes",[]))}</b>
       {"· 每日自動班" if cfg.get("auto") else "· 手動觸發"}
     </div>
+    {validation_html}
     <div class="chips" style="margin-top:10px">
       {"".join(f"<span>⛔ {esc(x)}</span>" for x in (d.get("danger_list") or [])[:6] if isinstance(x, str))}
     </div>
@@ -278,6 +297,7 @@ footer {{ text-align:center; color:var(--muted); font-size:12px; margin-top:56px
     {dec_badge}
     <div style="flex:1">
       <p class="verdict-line">{esc(v.get("verdict_line",""))}</p>
+      {revision_note}{frozen_note}
       <div class="scores">
         {score_bar("結構", _d(v.get("scores",{})).get("structure"))}
         {score_bar("人物", _d(v.get("scores",{})).get("characters"))}

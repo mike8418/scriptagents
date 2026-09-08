@@ -146,8 +146,13 @@ def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -
 
 # ── 力挺派 vs 挑刺派辯論（temp 0.5）───────────────────────
 
-def bull_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
+def bull_researcher(logline: str, genre: str, analyses: dict, trace: list, opponent: dict | None = None) -> dict:
     sys_ = "你係編劇室嘅力挺派研究員（Bull Researcher）。你嘅職責係論證呢個故事最值得寫。只輸出 JSON。"
+    round_hint = (
+        f"\n【第 2 輪 · 駁論】挑刺派啱啱反駁過你：{json.dumps(opponent, ensure_ascii=False)}\n"
+        "逐條駁斥佢嘅風險論點（指出佢睇漏咗啲乜），再強化你自己最有力嘅一條論點。\n"
+        if opponent else ""
+    )
     usr = f"""【輸出合約】淨係輸出一個 JSON object。頂層 keys 必須係 ["arguments", "one_line_pitch"]。
 - "arguments" = array，必須有 3 個 object，每個 object 有 "point" / "evidence" / "how_to_execute" 三個非空字串
 - "one_line_pitch" = 一個非空字串
@@ -156,15 +161,21 @@ def bull_researcher(logline: str, genre: str, analyses: dict, trace: list) -> di
 Logline：{logline}
 類型：{genre}
 分析師報告：{json.dumps(analyses, ensure_ascii=False)}
-
+{round_hint}
 提出三個「呢個故事非寫不可」嘅最強論點。
 結構示例（內容只係示意，唔好照抄）：
 {{"arguments": [{{"point": "例：殯儀館 vs 地產商嘅空間鬥爭自帶香港當下性", "evidence": "例：受眾分析指出港人對收樓有集體焦慮", "how_to_execute": "例：開場用一單真實收樓場面鉤住觀眾"}}], "one_line_pitch": "例：呢個係一代人同一個時代的告別儀式"}}"""
-    return call_json("bull_researcher", sys_, usr, 0.5, 6000, trace, required=["arguments"])
+    step = "bull_rebuttal" if opponent else "bull_researcher"
+    return call_json(step, sys_, usr, 0.5, 6000, trace, required=["arguments"])
 
 
-def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
+def bear_researcher(logline: str, genre: str, analyses: dict, trace: list, opponent: dict | None = None) -> dict:
     sys_ = "你係編劇室嘅挑刺派研究員（Bear Researcher）。你嘅職責係搵出呢個故事最易寫壞嘅位。不留情面，但每個批評都要附補救方案。只輸出 JSON。"
+    round_hint = (
+        f"\n【第 2 輪 · 駁論】力挺派啱啱話咗：{json.dumps(opponent, ensure_ascii=False)}\n"
+        "逐條拆佢嘅論點（指出佢嘅執行要許有乜盲點），再強化你自己最致命嘅一條風險。\n"
+        if opponent else ""
+    )
     usr = f"""【輸出合約】淨係輸出一個 JSON object。頂層 keys 必須係 ["risks", "kill_shot"]。
 - "risks" = array，必須有 3 個 object，每個 object 有 "risk" / "why_it_fails" / "remedy" 三個非空字串
 - "kill_shot" = 一個非空字串
@@ -173,11 +184,12 @@ def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> di
 Logline：{logline}
 類型：{genre}
 分析師報告：{json.dumps(analyses, ensure_ascii=False)}
-
+{round_hint}
 提出三個最大嘅「會寫壞」風險，不留情面，但每個批評都要附補救方案。
 結構示例（內容只係示意，唔好照抄）：
 {{"risks": [{{"risk": "例：殯儀館題材易變獵奇展覽", "why_it_fails": "例：失去對死亡嘅尊重就冇戲可做", "remedy": "例：所有靈堂戲用固定長鏡頭，唔剪接渲染"}}], "kill_shot": "例：主角同阿媽嘅感情線唔夠深，補一場生前遺願戲先落筆"}}"""
-    return call_json("bear_researcher", sys_, usr, 0.5, 6000, trace, required=["risks"])
+    step = "bear_rebuttal" if opponent else "bear_researcher"
+    return call_json(step, sys_, usr, 0.5, 6000, trace, required=["risks"])
 
 
 # ── 統籌拍板（temp 0.2 — 委員會終結者）───────────────────
@@ -240,11 +252,23 @@ def head_writer_outline(logline: str, genre: str, master_name: str, directive: d
 
 
 def head_writer_scene(logline: str, genre: str, master_name: str, directive: dict,
-                      outline: dict, scene_no: int, trace: list) -> str:
+                      outline: dict, scene_no: int, trace: list,
+                      revision_notes: str = "", previous_draft: str = "", revision_count: int = 0) -> str:
     scene = next((s for s in outline.get("scenes", []) if int(s.get("no", 0)) == scene_no), None)
     sys_ = ("你係編劇室嘅主筆編劇（Head Writer）。執筆寫第 {n} 場完整劇本。"
             "劇本格式：場景 heading · 動作描寫（現在式）· 角色名大寫企中 · 對白。"
             "統籌指令係聖旨，禁忌唔可以掂。只輸出劇本本文，唔好輸出任何解釋。").format(n=scene_no)
+    revise_hint = ""
+    if revision_notes:
+        revise_hint = f"""
+【修稿任務 · 第 {revision_count} 次覆寫】Showrunner 判咗 REVISE，逐條要改：
+{revision_notes}
+
+你上一稿：
+{previous_draft}
+
+重寫第 {scene_no} 場：上面每一條都要落實改，但保留上一稿做得好嘅位（評分卡嘅 highlights）。
+成場由 heading 重新出，唔好出「修改說明」。"""
     usr = f"""Logline：{logline}
 類型：{genre}
 大師手法：{style_brief(master_name)}
@@ -252,7 +276,7 @@ def head_writer_scene(logline: str, genre: str, master_name: str, directive: dic
 分場大綱：{json.dumps(outline.get("scenes", []), ensure_ascii=False)}
 
 本場大綱：{json.dumps(scene, ensure_ascii=False)}
-
+{revise_hint}
 寫第 {scene_no} 場完整劇本（中文 1500-2500 字，約 2-4 頁）。
 要求：
 1. 跟足本場大綱嘅節拍同 exit hook
@@ -260,7 +284,8 @@ def head_writer_scene(logline: str, genre: str, master_name: str, directive: dic
 3. 大師手法嘅對白法則全程生效
 4. 動作描寫係畫面（可拍），唔係小說心理描寫
 5. 場景 heading 用標準格式：INT./EXT. 地點 - 日/夜"""
-    return strip_preamble(call_agent("head_writer_scene", sys_, usr, 0.8, 10000, trace))
+    step = f"head_writer_scene_r{revision_count}" if revision_count else "head_writer_scene"
+    return strip_preamble(call_agent(step, sys_, usr, 0.8, 10000, trace))
 
 
 def strip_preamble(text: str) -> str:
@@ -300,9 +325,17 @@ def risk_team(logline: str, directive: dict, outline: dict, scene_text: str,
 # ── Showrunner 終審（temp 0.2）───────────────────────────
 
 def showrunner(logline: str, genre: str, master_name: str, directive: dict,
-               outline: dict, scene_text: str, risk: dict, trace: list) -> dict:
+               outline: dict, scene_text: str, risk: dict, trace: list,
+               revision_count: int = 0, prev_verdict: dict | None = None) -> dict:
     sys_ = ("你係 Showrunner（終審）。你有 5 個評分維度：結構、人物、對白、手法忠實度、商業爽點。"
             "判決只有 PASS 定 REVISE（附 revision notes）。只輸出 JSON。")
+    recheck_hint = ""
+    if revision_count:
+        recheck_hint = f"""
+【覆審 · 第 {revision_count} 次修稿後】你上輪判咗 REVISE，revision notes 係：
+{json.dumps((prev_verdict or {}).get('revision_notes', []), ensure_ascii=False)}
+今稿係主筆照你嘅 notes 修過嘅版本。如果你嘅要求已落實 → PASS；如果仲有大問題 → REVISE 附新 notes。
+唔好為雞毛蒜皮再判 REVISE — 修稿機會有限，要用喺大嘢上面。"""
     usr = f"""Logline：{logline}
 類型：{genre}
 大師手法：{style_brief(master_name)}
@@ -310,7 +343,7 @@ def showrunner(logline: str, genre: str, master_name: str, directive: dict,
 分場大綱：{json.dumps(outline.get('scenes', []), ensure_ascii=False)}
 第 1 場劇本：{scene_text}
 風控報告：{json.dumps(risk, ensure_ascii=False)}
-
+{recheck_hint}
 終審判決，輸出 JSON：
 {{
   "decision": "PASS | REVISE",
@@ -320,7 +353,8 @@ def showrunner(logline: str, genre: str, master_name: str, directive: dict,
   "revision_notes": ["如果 REVISE，要改乜（PASS 就空 array）"],
   "next_episode_hook": "呢集寫完，下一場最想睇乜"
 }}"""
-    return call_json("showrunner", sys_, usr, 0.2, 6000, trace, required=["decision", "scores"])
+    step = f"showrunner_recheck_{revision_count}" if revision_count else "showrunner"
+    return call_json(step, sys_, usr, 0.2, 6000, trace, required=["decision", "scores"])
 
 
 # ── 模擬圍讀（temp 0.7 — 反饋迴路）───────────────────────

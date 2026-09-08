@@ -20,10 +20,14 @@ from pathlib import Path
 
 from . import agents, site
 from .masters import DEFAULT_GENRE, DEFAULT_MASTER, GENRES, MASTERS, master_pack
+from .validate import validate_config
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUTS = ROOT / "outputs"
 CQ = ROOT / "config" / "logline_queue.json"
+
+MAX_REVISIONS = 2
+DEBATE_ROUNDS = 2
 
 HKT = timezone(timedelta(hours=8))
 
@@ -74,8 +78,21 @@ def run(cfg: dict) -> dict:
     trace: list = []
     state: dict = {"run_id": run_id, "config": cfg}
 
+    # 0. 設定相容性檢查（純代碼，零 LLM）
+    validation = validate_config(cfg)
+    state["config_validation"] = validation
+    if validation["hard_stops"]:
+        for msg in validation["hard_stops"]:
+            print(f"[validate_config] ❌ HARD STOP: {msg}", file=sys.stderr)
+        raise SystemExit(1)
+    for w in validation["warnings"]:
+        print(f"[validate_config] ⚠️ {w}")
+    for a in validation["adjustments"]:
+        print(f"[validate_config] 🔧 {a}")
+    scene_count = int(cfg.get("scene_count", 9))  # validate 可能已自動修正
+
     # 1. 分析師團隊
-    print("[1/9] 分析師團隊：人物 / 受眾 / 結構 …")
+    print("[1] 分析師團隊：人物 / 受眾 / 結構 …")
     analyses = {
         "character": agents.analyst_character(logline, genre, trace),
         "audience": agents.analyst_audience(logline, genre, trace),
@@ -83,39 +100,63 @@ def run(cfg: dict) -> dict:
     }
     if notes:
         analyses["boss_notes"] = notes
+    if validation["warnings"]:
+        analyses["config_warnings"] = validation["warnings"]
 
-    # 2. 辯論：力挺派 vs 挑刺派
-    print("[2/9] 力挺派 vs 挑刺派 …")
-    bull = agents.bull_researcher(logline, genre, analyses, trace)
-    bear = agents.bear_researcher(logline, genre, analyses, trace)
+    # 2. 辯論：力挺派 vs 挑刺派（2 輪 — 第 2 輪駁論）
+    print("[2] 力挺派 vs 挑刺派 辯論 …")
+    bull = {"round1": agents.bull_researcher(logline, genre, analyses, trace)}
+    bear = {"round1": agents.bear_researcher(logline, genre, analyses, trace)}
+    if DEBATE_ROUNDS >= 2:
+        print("      第 2 輪駁論 …")
+        bull["round2"] = agents.bull_researcher(logline, genre, analyses, trace, opponent=bear["round1"])
+        bear["round2"] = agents.bear_researcher(logline, genre, analyses, trace, opponent=bull["round1"])
 
     # 3. 統籌拍板
-    print("[3/9] 統籌拍板（論點取捨）…")
+    print("[3] 統籌拍板（論點取捨）…")
     directive = agents.script_manager(logline, genre, master_name, analyses, bull, bear, scene_count, trace)
 
     # 4. 主筆：分場大綱
-    print(f"[4/9] 主筆分場大綱（{scene_count} 場）…")
+    print(f"[4] 主筆分場大綱（{scene_count} 場）…")
     outline = agents.head_writer_outline(logline, genre, master_name, directive, scene_count, trace)
     actual_scenes = len(outline.get("scenes", []))
 
     # 5. 主筆：第 1 場完整劇本
-    print("[5/9] 主筆執筆第 1 場 …")
+    print("[5] 主筆執筆第 1 場 …")
     scene_text = agents.head_writer_scene(logline, genre, master_name, directive, outline, 1, trace)
 
     # 6. 監製風控
-    print("[6/9] 監製風控紅旗審查 …")
+    print("[6] 監製風控紅旗審查 …")
     risk = agents.risk_team(logline, directive, outline, scene_text, master_name, trace)
 
-    # 7. Showrunner 終審
-    print("[7/9] Showrunner 終審 …")
+    # 7. Showrunner 終審（REVISE → 修稿迴圈，最多 2 次，凍結照出街）
+    print("[7] Showrunner 終審 …")
     verdict = agents.showrunner(logline, genre, master_name, directive, outline, scene_text, risk, trace)
+    revision_count = 0
+    verdict_history = [verdict]
+    while verdict.get("decision") == "REVISE" and revision_count < MAX_REVISIONS:
+        revision_count += 1
+        r_notes = "；".join(str(x) for x in verdict.get("revision_notes", []) if x)
+        print(f"      REVISE → 主筆第 {revision_count} 次修稿（{r_notes[:60]}…）")
+        scene_text = agents.head_writer_scene(
+            logline, genre, master_name, directive, outline, 1, trace,
+            revision_notes=r_notes, previous_draft=scene_text, revision_count=revision_count)
+        verdict = agents.showrunner(
+            logline, genre, master_name, directive, outline, scene_text, risk, trace,
+            revision_count=revision_count, prev_verdict=verdict)
+        verdict_history.append(verdict)
+        print(f"      覆審：{verdict.get('decision', '?')} — {str(verdict.get('verdict_line', ''))[:50]}")
+    if verdict.get("decision") == "REVISE":
+        verdict["decision"] = "REVISE_FINAL"
+        verdict["frozen"] = True
+        print("      ❄ 2 次修稿都未過 — 凍結照出街，等老闆裁決")
 
     # 8. 模擬圍讀
-    print("[8/9] 模擬圍讀（3 persona）…")
+    print("[8] 模擬圍讀（3 persona）…")
     read = agents.table_read(logline, genre, outline, scene_text, verdict, trace)
 
     elapsed = round(time.time() - t_start, 1)
-    print(f"[9/9] 完成，全流程 {elapsed}s · {len(trace)} 次 LLM 調用")
+    print(f"[9] 完成，全流程 {elapsed}s · {len(trace)} 次 LLM 調用 · 修稿 {revision_count} 次")
 
     state.update({
         "finished_at": now_hkt(),
@@ -129,6 +170,8 @@ def run(cfg: dict) -> dict:
         "scene_1": scene_text,
         "risk": risk,
         "verdict": verdict,
+        "verdict_history": verdict_history,
+        "revision_count": revision_count,
         "table_read": read,
         "trace": trace,
     })
