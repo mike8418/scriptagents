@@ -209,9 +209,11 @@ async function serveRepoFile(env, repoPath, contentType = "text/html; charset=ut
       }
     );
     if (!resp.ok) {
+      const body = await resp.text();
+      console.log(`[SERVE-FAIL] ${repoPath}: ${resp.status} — ${body.slice(0, 300)}`);
       const msg = resp.status === 404
         ? "頁面仲未生成（等第一班編劇室 CI commit）"
-        : `讀取失敗：GitHub API ${resp.status}`;
+        : `讀取失敗：GitHub API ${resp.status} — ${body.slice(0, 200)}`;
       return new Response(msg, {
         status: 502,
         headers: { "Content-Type": "text/plain; charset=utf-8" },

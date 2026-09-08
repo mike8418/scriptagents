@@ -20,18 +20,25 @@ from .masters import style_brief
 # ── JSON 容錯解析 ─────────────────────────────────────────
 
 def extract_json(text: str):
-    """由 LLM 回覆度抽 JSON：先剝 code fence，再用 raw_decode 由第一個括號開始。"""
+    """由 LLM 回覆度抽 JSON（M3 偶爾會喺前面漏思考文字）：
+    1. 剝 code fence
+    2. 掃晒全部 { / [ 開頭位，逐個試 raw_decode
+    3. 揀「跨度最大」嘅可解析對象（避開散落喺 prose 入面嘅碎 brace）
+    """
     text = re.sub(r"```(?:json)?\s*", "", text)
     text = text.replace("```", "")
-    for opener, closer in (("{", "}"), ("[", "]")):
-        start = text.find(opener)
-        if start == -1:
-            continue
-        try:
-            obj, _ = json.JSONDecoder().raw_decode(text[start:])
-            return obj
-        except json.JSONDecodeError:
-            continue
+    dec = json.JSONDecoder()
+    best = None  # (obj, span)
+    for opener in ("{", "["):
+        for m in re.finditer(re.escape(opener), text):
+            try:
+                obj, end = dec.raw_decode(text[m.start():])
+                if isinstance(obj, (dict, list)) and (best is None or end > best[1]):
+                    best = (obj, end)
+            except json.JSONDecodeError:
+                continue
+    if best is not None:
+        return best[0]
     raise ValueError(f"抽唔到 JSON：{text[:200]}...")
 
 
@@ -45,6 +52,21 @@ def call_agent(step: str, system: str, user: str, temp: float, max_tokens: int, 
         "reasoning": usage["reasoning_tokens"],
     })
     return content
+
+
+def call_json(step: str, system: str, user: str, temp: float, max_tokens: int, trace: list):
+    """JSON 崗位專用：解析失敗就帶糾正提示重試一次。"""
+    content = call_agent(step, system, user, temp, max_tokens, trace)
+    try:
+        return extract_json(content)
+    except ValueError:
+        retry = (
+            "你上次嘅回覆喺 JSON 前面多咗文字，解析失敗。"
+            "重新輸出：**淨係 JSON**，第一個字元必須係 `{`，之前之後都唔可以有任何文字。\n\n"
+            "上次回覆開頭（僅供參考，唔好照抄開頭嗰啲文字）：\n" + content[:300]
+        )
+        content2 = call_agent(step, system, user + "\n\n" + retry, temp, max_tokens, trace)
+        return extract_json(content2)
 
 
 # ── 分析師團隊（temp 0.3）─────────────────────────────────
@@ -62,7 +84,7 @@ def analyst_character(logline: str, genre: str, trace: list) -> dict:
   "central_relationship": "最有力嘅人物關係軸",
   "casting_hooks": ["三個選角/寫戲時最搶眼嘅人物瞬間"]
 }}"""
-    return extract_json(call_agent("analyst_character", sys_, usr, 0.3, 3000, trace))
+    return call_json("analyst_character", sys_, usr, 0.3, 3000, trace)
 
 
 def analyst_audience(logline: str, genre: str, trace: list) -> dict:
@@ -79,7 +101,7 @@ def analyst_audience(logline: str, genre: str, trace: list) -> dict:
   "genre_conventions_to_subvert": ["可以反套路上位嘅位"],
   "taboo_risks": ["呢個題材最易踩嘅受眾雷區"]
 }}"""
-    return extract_json(call_agent("analyst_audience", sys_, usr, 0.3, 2500, trace))
+    return call_json("analyst_audience", sys_, usr, 0.3, 2500, trace)
 
 
 def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -> dict:
@@ -98,7 +120,7 @@ def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -
   "resolution": "結尾（唔好預支大團圓，留餘味）",
   "act_breaks": ["每個轉折位一句話"]
 }}"""
-    return extract_json(call_agent("analyst_structure", sys_, usr, 0.3, 3000, trace))
+    return call_json("analyst_structure", sys_, usr, 0.3, 3000, trace)
 
 
 # ── 力挺派 vs 挑刺派辯論（temp 0.5）───────────────────────
@@ -118,7 +140,7 @@ def bull_researcher(logline: str, genre: str, analyses: dict, trace: list) -> di
   ],
   "one_line_pitch": "用一句話講服 Showrunner 俾錢開機"
 }}"""
-    return extract_json(call_agent("bull_researcher", sys_, usr, 0.5, 3000, trace))
+    return call_json("bull_researcher", sys_, usr, 0.5, 3000, trace)
 
 
 def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
@@ -136,7 +158,7 @@ def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> di
   ],
   "kill_shot": "如果只可以改一樣嘢，改呢樣："
 }}"""
-    return extract_json(call_agent("bear_researcher", sys_, usr, 0.5, 3000, trace))
+    return call_json("bear_researcher", sys_, usr, 0.5, 3000, trace)
 
 
 # ── 統籌拍板（temp 0.2 — 委員會終結者）───────────────────
@@ -165,7 +187,7 @@ def script_manager(logline: str, genre: str, master_name: str, analyses: dict,
   "protagonist_lock": {{"name": "", "desire": "", "flaw": ""}},
   "tone": ""
 }}"""
-    return extract_json(call_agent("script_manager", sys_, usr, 0.2, 4000, trace))
+    return call_json("script_manager", sys_, usr, 0.2, 4000, trace)
 
 
 # ── 主筆編劇（唯一執筆者 · temp 0.8）─────────────────────
@@ -195,7 +217,7 @@ def head_writer_outline(logline: str, genre: str, master_name: str, directive: d
   ],
   "series_engine": "如果拍成劇集，呢個故事嘅持續引擎係乜"
 }}"""
-    return extract_json(call_agent("head_writer_outline", sys_, usr, 0.7, 6000, trace))
+    return call_json("head_writer_outline", sys_, usr, 0.7, 6000, trace)
 
 
 def head_writer_scene(logline: str, genre: str, master_name: str, directive: dict,
@@ -245,7 +267,7 @@ def risk_team(logline: str, directive: dict, outline: dict, scene_text: str,
   "greenlights": ["明顯過關嘅位"],
   "overall": "一段總結"
 }}"""
-    return extract_json(call_agent("risk_team", sys_, usr, 0.1, 3000, trace))
+    return call_json("risk_team", sys_, usr, 0.1, 3000, trace)
 
 
 # ── Showrunner 終審（temp 0.2）───────────────────────────
@@ -271,7 +293,7 @@ def showrunner(logline: str, genre: str, master_name: str, directive: dict,
   "revision_notes": ["如果 REVISE，要改乜（PASS 就空 array）"],
   "next_episode_hook": "呢集寫完，下一場最想睇乜"
 }}"""
-    return extract_json(call_agent("showrunner", sys_, usr, 0.2, 3000, trace))
+    return call_json("showrunner", sys_, usr, 0.2, 3000, trace)
 
 
 # ── 模擬圍讀（temp 0.7 — 反饋迴路）───────────────────────
@@ -295,4 +317,4 @@ Showrunner 判決：{json.dumps(verdict, ensure_ascii=False)}
   "veteran_actor": {{"reaction": "", "mouth_feel": "對白讀出口嘅手感", "worry": ""}},
   "room_temperature": "成個房嘅溫度總結（一句）"
 }}"""
-    return extract_json(call_agent("table_read", sys_, usr, 0.7, 3000, trace))
+    return call_json("table_read", sys_, usr, 0.7, 3000, trace)
