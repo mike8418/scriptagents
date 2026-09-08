@@ -1,7 +1,974 @@
 <!DOCTYPE html>
-<html lang="zh-Hant"><head><meta charset="UTF-8"><title>ScriptAgents · AI 編劇室</title>
-<style>body{background:#0d0f14;color:#e6e4dd;font-family:-apple-system,'PingFang TC',sans-serif;
-display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column}
-h1{letter-spacing:3px}.s{color:#8a8f9e;margin-top:10px;font-size:14px}</style></head>
-<body><h1>SCRIPT<span style="color:#e8b64c">AGENTS</span> · AI 編劇室</h1>
-<p class="s">編劇室已就緒 — 等第一班 CI 開工出劇本</p></body></html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScriptAgents · AI 編劇室</title>
+<style>
+:root {
+  --bg:#0d0f14; --panel:#151823; --panel2:#1b1f2e; --border:#2a3048;
+  --text:#e6e4dd; --muted:#8a8f9e; --amber:#e8b64c; --teal:#4ec9b0;
+  --red:#d96459; --purple:#8a7ec8; --green:#6dbf7e;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:-apple-system,'PingFang TC','Noto Sans TC',sans-serif; line-height:1.75; }
+.wrap { max-width:880px; margin:0 auto; padding:32px 20px 80px; }
+a { color:var(--teal); text-decoration:none; }
+header { text-align:center; padding:36px 0 26px; border-bottom:1px solid var(--border); margin-bottom:28px; }
+h1 { font-size:30px; letter-spacing:2px; }
+h1 .brand { color:var(--amber); }
+.sub { color:var(--muted); font-size:13px; margin-top:6px; }
+.badges { margin-top:12px; }
+.badge { display:inline-block; padding:3px 12px; border:1px solid var(--border); border-radius:20px; font-size:12px; color:var(--muted); margin:0 4px; }
+.badge .dot { color:var(--green); }
+section { margin-bottom:34px; }
+h2 { font-size:15px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; margin-bottom:14px; padding-bottom:8px; border-bottom:1px dashed var(--border); }
+h2 .no { color:var(--amber); }
+.card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:22px 24px; margin-bottom:14px; }
+.logline { font-size:17px; color:var(--text); font-weight:500; }
+.meta { margin-top:10px; font-size:13px; color:var(--muted); }
+.meta b { color:var(--amber); }
+.chips span { display:inline-block; background:var(--panel2); border:1px solid var(--border); border-radius:6px; padding:2px 10px; margin:4px 6px 0 0; font-size:12px; color:var(--text); }
+.decision { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); }
+.decision:last-child { border-bottom:none; }
+.decision p { font-size:13px; color:var(--muted); margin:2px 0; }
+.decision .instr { font-size:12px; color:var(--teal); }
+.vd { flex:none; font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; margin-top:3px; text-align:center; }
+.vd-accept,.vd-pass { background:rgba(109,191,126,.15); color:var(--green); border:1px solid var(--green); }
+.vd-reject { background:rgba(217,100,89,.12); color:var(--red); border:1px solid var(--red); }
+.vd-modify,.vd-revise { background:rgba(232,182,76,.12); color:var(--amber); border:1px solid var(--amber); }
+table { width:100%; border-collapse:collapse; font-size:13.5px; }
+th { text-align:left; color:var(--muted); font-size:12px; font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); }
+td { padding:10px; border-bottom:1px solid var(--border); vertical-align:top; }
+tr:last-child td { border-bottom:none; }
+.sc-no { color:var(--amber); font-weight:700; width:36px; }
+.hook { font-size:12px; color:var(--teal); }
+.script { white-space:pre-wrap; font-family:'SF Mono','Courier New',monospace; font-size:14px; background:#10131c; border:1px solid var(--border); border-radius:10px; padding:26px 28px; line-height:1.9; }
+.flag { padding:11px 0; border-bottom:1px solid var(--border); }
+.flag:last-child { border-bottom:none; }
+.flag b { display:block; font-size:14px; }
+.flag p { font-size:12.5px; color:var(--muted); }
+.sev { font-size:11px; font-weight:700; margin-right:10px; }
+.flag-high .sev { color:var(--red); } .flag-med .sev { color:var(--amber); } .flag-low .sev { color:var(--muted); }
+.verdict-card { display:flex; gap:22px; align-items:flex-start; }
+.big-badge { flex:none; font-size:24px; font-weight:800; letter-spacing:3px; padding:10px 26px; border-radius:10px; }
+.badge-pass { background:rgba(109,191,126,.12); color:var(--green); border:2px solid var(--green); }
+.badge-revise { background:rgba(232,182,76,.1); color:var(--amber); border:2px dashed var(--amber); }
+.verdict-line { font-size:17px; font-weight:600; margin-bottom:8px; }
+.scores { margin-top:10px; }
+.score-row { display:flex; align-items:center; gap:12px; font-size:13px; margin:6px 0; }
+.score-row span { width:90px; color:var(--muted); }
+.score-row b { color:var(--amber); width:24px; text-align:right; }
+.score-track { flex:1; height:7px; background:var(--panel2); border-radius:4px; overflow:hidden; }
+.score-fill { height:100%; border-radius:4px; }
+.personas { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+.persona { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:16px 18px; font-size:13px; }
+.persona h4 { color:var(--amber); font-size:13px; margin-bottom:6px; }
+.persona blockquote { border-left:3px solid var(--purple); padding-left:10px; margin:8px 0; color:var(--text); font-size:12.5px; }
+.worry { color:var(--red); font-size:12px; }
+form .fld { margin-bottom:14px; }
+label { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; letter-spacing:1px; }
+textarea, select { width:100%; background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:14px; font-family:inherit; }
+textarea { min-height:88px; resize:vertical; }
+textarea:focus, select:focus { outline:none; border-color:var(--amber); }
+button { background:var(--amber); color:#141414; font-weight:700; font-size:15px; border:none; border-radius:9px; padding:12px 34px; cursor:pointer; width:100%; letter-spacing:2px; }
+button:disabled { opacity:.45; cursor:not-allowed; }
+.status { text-align:center; margin-top:14px; font-size:13px; color:var(--muted); min-height:22px; }
+.status a { color:var(--teal); }
+.muted { color:var(--muted); }
+footer { text-align:center; color:var(--muted); font-size:12px; margin-top:56px; padding-top:22px; border-top:1px solid var(--border); }
+@media(max-width:640px) { .verdict-card { flex-direction:column; } .wrap { padding:20px 14px 60px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>SCRIPT<span class="brand">AGENTS</span> · AI 編劇室</h1>
+  <p class="sub">多智能體劇本創作 — 分析師 → 力挺 vs 挑刺辯論 → 統籌拍板 → 主筆 → 風控 → Showrunner → 圍讀</p>
+  <p class="sub">LLM：MiniMax-M3</p>
+  <div class="badges">
+    <span class="badge"><span class="dot">●</span> 全雲端自動生成</span>
+    <span class="badge">更新於 2026-09-09 02:05 HKT</span>
+    <span class="badge">14 次 LLM 調用 · 629.4s · 47462 tokens</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="no">01</span> 拍板卡 · Creative Directive</h2>
+  <div class="card">
+    <p class="logline">「」</p>
+    <p class="logline" style="font-weight:400;font-size:15px;margin-top:6px">一個收數佬為咗完成亡母心願，被迫接手一間就執笠嘅殯儀館，仲要同連環收樓嘅地產商鬥法。</p>
+    <div class="meta">
+      類型 <b>黑幫</b> ·
+      大師手法 <b>杜琪峯</b> ·
+      場數 <b>0</b>
+      · 手動觸發
+    </div>
+    <div class="chips" style="margin-top:10px">
+      <span>⛔ 絕對唔可以將亡母之死寫成謀殺——阿媽死於自然/急病，陰謀只限地產商業層面</span><span>⛔ 絕對唔可以用煽情配樂提示觀眾幾時感動——大師手法禁忌</span><span>⛔ 絕對唔可以大團圓冇代價——阿孝贏個人即輸條街</span><span>⛔ 絕對唔可以將地產商寫成卡通奸角——要有資本邏輯同悲劇性</span><span>⛔ 絕對唔可以侮辱或獵奇化殯儀行業——紙紮、出殯、喃嘸等細節必須尊重從業員</span><span>⛔ 絕對唔可以政治表態——保留情感真實但避免踩土地政策敏感神經</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2 style="margin-bottom:6px;border:none">論點取捨紀錄（辯論 → 拍板）</h2>
+    <div class="decision"><span class="vd vd-accept">ACCEPT</span><div><b>力挺派論點一：收數佬×殯儀館嘅cult縫隙</b><p>呢個雙軌概念係成個項目最sharp嘅賣點，黑幫劇集市場稀缺性高，銀河映像式黑色電影血脈有底但唔食老本。Opening hook嘅conceit已經sell得，必須貫穿全劇。</p><span class="instr">→ 每集至少設計一個收數/殯儀雙軌交錯場面；視覺走銀河映像高冷調，用紙紮霓虹、棺材木紋、金銀紙屑做質感；對峙場面可用喃嘸經文節奏剪輯。</span></div></div><div class="decision"><span class="vd vd-modify">MODIFY</span><div><b>力挺派論點二：亡母願望線嘅情感重力</b><p>贖罪弧係成個劇嘅情感核心，必須保留並強化——但阿媽唔可以係純慈母，要有江湖背景同手段，母子線形成雙螺旋。陰謀論會搶走贖罪動能，故此必須切割。</p><span class="instr">→ 阿媽生前係有手段嘅江湖女人，與環星有商業恩怨但唔涉及謀殺；母子線同主線陰謀形成雙螺旋而非報仇線；每集用一件母親遺物推進真相，但真相係人性嘅複雜而唔係殺人動機。</span></div></div><div class="decision"><span class="vd vd-accept">ACCEPT</span><div><b>力挺派論點三：環星×前坐館×舊區重建嘅三層博弈</b><p>時代焦慮係呢個劇超越類型片嘅層次，必須保留。前坐館身份加深權力結構嘅複雜性，但佢同阿媽之死唔可以有關。</p><span class="instr">→ 環星老細保持前坐館身份同悲劇性資本邏輯；佢同阿媽嘅恩怨只限商業/地產糾紛；結局呈現條街已變、只餘殯儀館嘅時代見證，但保持情感真實避免政治表態。</span></div></div><div class="decision"><span class="vd vd-accept_remedy_b">ACCEPT_REMEDY_B</span><div><b>挑刺派風險：阿孝弧光被陰謀線搶走</b><p>陰謀論會將『由收數變送終』嘅贖罪弧貶值為復仇劇，違反大師手法『大團圓冇代價』嘅禁忌同銀河映像式宿命餘味。香港黑幫劇嘅報仇敘事已疲勞，觀眾唔再買單。</p><span class="instr">→ 刪走『亡母之死唔係意外』、『連孝母嘅死都唔係意外』所有謀殺陰謀線；阿媽死於自然/急病；前坐館嘅布局只限於舊區重建嘅商業陰謀，唔涉及人身謀害；阿孝嘅中點reveal係仇人身份同布局規模，但climax唔係報仇而係承擔——用阿媽教落嘅白事規矩完成對環星嘅最後一擊，係贖罪而唔係復仇。</span></div></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">02</span> 分場大綱 · Scene Outline</h2>
+  <div class="card" style="padding:0">
+    <table>
+      <tr><th style="width:36px">#</th><th>場次</th></tr>
+      <tr><td colspan="2" class="muted">—</td></tr>
+    </table>
+  </div>
+  
+</section>
+
+<section>
+  <h2><span class="no">03</span> 第 1 場 · 完整劇本</h2>
+  <div class="script">&lt;think&gt;The user wants me to write Scene 1 of a Hong Kong gangster film script, following the "杜琪峯派 · 靜與爆" style. Let me analyze the requirements:
+
+1. Beat from beat_sheet for Episode 1: 葉守仁凌晨喺靈堂收數，孝母猝逝，遺囑揭曉——接館即接債，靈堂收到環星集團律師信，無得甩身
+
+2. Scene heading standard format: INT./EXT. 地點 - 日/夜
+
+3. Chinese 1500-2500 characters, about 2-4 pages
+
+4. Dialogue must have voice distinction between characters
+5. Master style: dialogue principles throughout
+6. Action description is cinematic (shootable), not novel psychological description
+
+Let me think about the scene structure:
+- Opening: 葉守仁 (阿孝) is a debt collector working in a funeral parlor at dawn
+- His mother (孝母) dies suddenly
+- The will is revealed - inheriting the parlor means inheriting debts
+- A lawyer's letter from 環星集團 arrives at the parlor
+- Exit hook: 無得甩身 (can't escape)
+
+Key style elements to incorporate:
+- 銀河映像 cool tone - paper effigy neon, coffin wood grain, joss paper
+- 靜場儲壓 - at least 30 seconds of silence before confrontation
+- 對白少而重 - dialogue sparse but heavy
+- 場面調度 - symmetric positioning, table, tea, cigarette
+- 男人之間嘅義 - through actions, not words
+- 殯儀cult細節 - paper effigy, funeral details with dark humor
+
+Characters I need to introduce in Scene 1:
+- 葉守仁 / 阿孝 (protagonist, debt collector) - speaks in numbers, debt, calculation language
+- 孝母 / 阿媽 - we only see her dying/dead, but she should be hinted at being江湖
+- Maybe 老伙記 (old staff) at the funeral parlor
+- 環星集團 representative (lawyer/agent)
+
+Voice distinctions:
+- 阿孝: 數佬語言 - "幾錢"、"幾耐"、"幾多"、"數"、"債"、"deadline"
+- 孝母 (if she speaks before dying): terse, 江湖氣
+- 老伙記: 慢，帶紙紮/殯儀行業術語
+- 環星代表: 律師腔，公文式
+
+Let me draft the scene:
+
+The scene should open with 阿孝 doing collection work IN the funeral parlor - this is the cult hook. Maybe he's collecting debt from a debtor who's hiding in a funeral parlor (people sometimes hide from debt collectors at funerals).
+
+Then 阿媽 collapses. The irony - 收數佬 (debt collector) working in a 殯儀館 (funeral parlor), where his mother is.
+
+The will reveal: 接館即接債
+The lawyer's letter: 環星集團 demand
+
+Let me write this carefully, following the rules:
+- No more than 15 lines of dialogue per scene
+- Key turns use action/objects instead of language
+- Silence and eyes are dialogue
+- 30 seconds of silence before confrontation
+- Symmetric positioning
+- Table, tea, cigarette in negotiation scenes
+
+Let me think about the visual opening:
+
+EXT./INT. 靈堂 - 凌晨 (around 3-4 AM)
+
+Open with the cool tone - the funeral parlor at night/dawn. 阿孝 sitting at a table, waiting for a debtor who's hiding in the parlor (avoiding debt by being at a funeral - or 阿孝 brings debtor here).
+
+Actually, re-reading the beat: 葉守仁凌晨喺靈堂收數 - he collects debt in the funeral parlor. This is interesting - maybe the funeral parlor is his usual collection spot, or it's a favor for his mother.
+
+Let me set it up:
+- 阿孝 has been using his mother's funeral parlor as a base for debt collection
+- Or: 阿孝 comes to the funeral parlor to collect debt from someone, finds his mother collapsed
+- Or: 阿孝 is at the funeral parlor because his mother asked him to come
+
+I think the most powerful opening: 阿孝 is at the funeral parlor for some collection-related reason (maybe his mother's funeral parlor is convenient/has江湖 connections for collection), then discovers his mother has died.
+
+Let me structure:
+
+1. Open: 殯儀館凌晨。阿孝喺靈堂做收數 - waiting for someone
+2. 老伙記 (maybe a 喃嘸師傅 or 紙紮師傅) brings tea
+3. 阿孝 uses 殯儀館 as leverage - "你阿爸個身後事喺我哋館做"
+4. The debtor escapes/is collected
+5. 阿孝 goes to back room, finds 阿媽 collapsed
+6. Silence
+7. Ambulance/call - 阿媽 dead
+8. 老伙記 reveals 遺囑 situation
+9. 律師信 arrives
+10. Exit hook
+
+Actually, I think the cult hook is stronger if 阿孝 is collecting debt FROM the funeral parlor's perspective - using the parlor's江湖 reputation.
+
+Let me think again about voice for 阿孝:
+- "你走數走幾耐？"
+- "呢筆數，你阿爸靈位都唔放過你"
+- "孝子賢孫做唔成，你阿媽嘅尾七都冇人拜"
+
+He uses 殯儀/白事 language as threat. That's the cult縫隙.
+
+OK let me draft. I'll aim for ~2000 characters.
+
+Scene heading: INT. 環星殯儀館·地下靈堂 - 凌晨三時
+
+Visual: 銀河映像 cool tone. 靈堂 white neon, paper effigies, coffin wood grain, 金銀紙屑 in air. 
+
+Let me write:
+
+---
+
+INT. 環星殯儀館 · 地下靈堂 - 凌晨三時
+
+【靜】
+
+畫面先見一張白菊花圈，鏡頭慢慢 pan 到一張八仙枱，枱面放住一壺龍鳳茶壺、兩隻杯、一包萬寶路。三支香煙喺空氣中懸住，煙霧同紙紮霓虹燈打成冷藍色。
+
+葉守仁（阿孝）坐喺靈堂正中，著住黑色皮褸，唔似來拜山，似來開工。
+
+枱對面，坐住一個中年男人——陳仔，著住麻布孝服，眼圈紅腫，雙手仲揸住一堆未摺嘅紙紮屋。
+
+老伙記——福伯，六十幾歲，捧住兩個茶杯行過來，放在兩人中間。冇聲。好似擺骨灰龕咁穩。
+
+阿孝冇動茶杯，攞起煙盒，敲出一支，遞畀陳仔。
+
+陳仔唔接。
+
+阿孝將煙擺喺枱面。
+
+(此處靜場，鏡頭留喺煙支，唔使講嘢)
+
+阿孝（冇表情）：你老豆尾七，啲紙紮未燒，我數過，你走數三個月。
+
+陳仔（低頭）：阿孝哥，我老豆啱啱過身……
+
+阿孝：咁啱嘅？我都係啱啱嚟。
+
+陳仔抬頭，眼濕。
+
+阿孝（指住牆上紙紮大屋）：呢棟三層洋樓，訂金落咗，師傅做埋落曬。你想退單，福伯都唔肯。
+
+福伯喺後面擦緊一張神樓，冇望過嚟，但手停咗一秒——呢一秒係佢嘅答案。
+
+陳仔（聲沙）：阿孝哥，我真係周轉唔嚟……
+
+阿孝（終於倒茶，倒一杯，推過去）：你飲咗呢杯，同我講幾時畀。
+
+陳仔接過杯，手震。
+
+阿孝（望住杯）：呢杯唔係茶，係你老豆最後一程。我數到三，你揀。
+
+一。
+
+陳仔低頭飲茶。
+
+二。
+
+紙紮屋頂一盞霓虹燈閃咗一下。
+
+三。
+
+陳仔（放下茶杯）：一萬二，三日內。
+
+阿孝（站起身，望住紙紮屋）：三日。我記住。
+
+陳仔行出靈堂，孝服下擺掃過金銀紙屑，發出細碎聲。
+
+【靜場，鏡頭留喺阿孝背影】
+
+福伯行過嚟，執走兩個茶杯。
+
+福伯（細聲）：阿孝，老爺今晚喺後堂等你。你阿媽話有事同你講。
+
+阿孝（頭也不回）：阿媽？阿媽幾時搵過我？
+
+福伯（望住阿孝）：三點三。
+
+---
+
+OK this is going well but I need to incorporate the death of mother, the will, and the lawyer's letter. Let me continue.
+
+---
+
+INT. 環星殯儀館 · 後堂 - 凌晨三時四十五分
+
+阿孝行入後堂。一張酸枝太師椅，後面掛住一幅觀音畫，但畫下面擺住一疊疊未入賬嘅紙紮訂單。
+
+阿媽坐喺椅上，半闔眼，著住一套黑色唐裝衫褲，襟上插住一支白花。佢身前茶几放住一封利是、一本老式黃皮記事簿。
+
+阿孝（企喺門口）：阿媽，三更半夜搞乜——
+
+阿媽（打斷）：入嚟坐。
+
+阿孝行過去，喺阿媽對面坐下。福伯喺門外收住閘。
+
+阿媽（遞過利是）：打開。
+
+阿孝接過，撕開，內裡係一張律師見證嘅遺囑副本。
+
+阿媽（指住遺囑）：殯儀館，連埋所有訂單、所有紙紮、所有棺材、所有牌位，全部歸你。
+
+阿孝（眉一動）：阿媽，你玩乜？
+
+阿媽（指住黃皮簿）：嗰本簿，係你接館之後要接嘅數。
+
+阿孝打開黃皮簿。第一頁：環星集團，金額欄係一串零，後面寫住——「館址連舖位，連環星二十年前未清嘅地皮交易」。
+
+阿孝（抬眼）：環星？
+
+阿媽（飲茶）：嗰單嘢，我同佢哋老細傾咗二十年。佢哋要呢條街，我要呢間館。各有各數。
+
+阿孝（合埋簿）：所以你臨死前先同我講？
+
+阿媽（望住阿孝，笑）：我未死。我只係叫你返嚟。
+
+阿孝：……
+
+阿媽（再推一張紙）：但如果你唔接，你老豆嘅骨灰，我會自己帶走。福伯會幫我燒埋呢間館。環星要嚟收，就乜都冇。
+
+阿孝（眼紅）：阿媽——
+
+阿媽（拍枱，唔大聲，但穩）：接，係一個字。唔接，係一個字。我畀你揀，唔係畀你喊。
+
+阿孝低頭，望住遺囑同黃皮簿。雙手放喺枱面。
+
+(此處30秒靜場，鏡頭推近遺囑)
+
+福伯喺門外咳一聲。
+
+福伯：阿孝，大閘外有個西裝佬，話係環星集團律師行嘅，送咗一封信就喺度等。
+
+阿孝抬眼，望阿媽。
+
+阿媽（閉眼）：去接。
+
+阿孝起身，行出後堂。
+
+---
+
+EXT. 環星殯儀館 · 大閘外 - 凌晨四時
+
+大閘外。一個西裝男人，戴住金絲眼鏡，手揸住一個公文袋。佢背後停住一架黑色 Benz。
+
+律師（遞上公文袋）：葉先生，環星集團法律部。呢封信，限你今日下晝五點前回覆。
+
+阿孝（接過，未拆）：你哋咁夜送？
+
+律師（推眼鏡）：葉老太太——應該係令堂——同我哋嘅協議，三十日期限，今日開始。
+
+阿孝拆開公文袋。一張律師信，一張地產權證明，一張數——數目係阿孝做十世收數佬都還唔起嘅價。
+
+阿孝（望住數）：呢個係——
+
+律師（已經上車）：下晝五點。
+
+Benz 開走。街燈打喺律師信嘅鋼印上——「環星集團 · 三十日」。
+
+阿孝拎住信，行返入館。鏡頭跟住佢背影，見到門口一盞紙紮霓虹燈——紅色，寫住「環星殯儀」四個字。
+
+【靜】
+
+阿孝回頭，望住呢四個字。
+
+呢四個字，今晚開始，係佢嘅。
+
+---
+
+This is the structure. Let me refine and make sure I hit:
+- Beat 1: 葉守仁凌晨喺靈堂收數 ✓
+- 孝母猝逝 - Wait, in this draft the mother doesn't die yet. The beat says she does. But the instruction says "阿媽死於自然/急病" but the reveal should come later. Let me re-read...
+
+Actually looking at the beat sheet again: "第一集：葉守仁凌晨喺靈堂收數，孝母猝逝，遺囑揭曉——接館即接債，靈堂收到環星集團律師信，無得甩身"
+
+So in episode 1, the mother does die suddenly. Let me adjust.
+
+But also the decision says "阿媽死於自然/急病，陰謀只限地產商業層面" - so natural death is OK.
+
+I think the dramatic version is: 阿媽 reveals everything, then dies (or has already died). Let me restructure:
+
+Option A: 阿媽 is alive when 阿孝 arrives, reveals things, then collapses/dies
+Option B: 阿媽 is already dead when 阿孝 arrives, and the reveal comes from her body position, the 遺囑 already prepared, etc.
+
+Option A is more dramatic and gives 阿孝 a chance to react to mother before she dies. But Option B is more 杜琪峯 - cold, silent, where 阿孝 discovers everything too late.
+
+Actually, I think Option A is better because:
+1. We get the mother's voice (江湖女人)
+2. We get the mother-son dynamic
+3. The death happens AFTER the reveal, which is more tragic
+4. 阿孝 never got to say goodbye properly - "唔敢承認自己驚連阿媽死都趕唔切見最後一面"
+
+Let me revise to Option A. The mother speaks (one of the few women speaking in the script, but she's 江湖), then collapses.
+
+Actually, I realize I need to be careful. The "flaw" of 阿孝 is "凡事當數計" and "唔敢承認自己驚連阿媽死都趕唔切見最後一面". This means the trauma is about NOT BEING THERE for mother's death.
+
+So the structure should be: 阿孝 is doing his collection work, 阿媽 is in the back room WAITING for him, but 阿孝 is doing the collection instead of going to see her. 阿媽 dies. 阿孝 arrives just after / or during, but didn't go to her first.
+
+That's the perfect tragic irony.
+
+Let me restructure:
+
+OPENING: 阿孝 in the front 靈堂, doing collection work on 陳仔. 阿媽 is in the BACK room, waiting for 阿孝 to come. 福伯 tries to get 阿孝 to go see mother. 阿孝 ignores/prioritizes collection. 阿媽 dies alone in back room. 阿孝 finishes collection, goes to back room, finds mother dead. 遺囑 already prepared. Then 環星律師信 arrives.
+
+This is much more tragic and serves the character flaw.
+
+Let me rewrite:
+
+---
+
+INT. 環星殯儀館 · 地下靈堂 - 凌晨二時
+
+[scene opens - 阿孝 doing collection]
+
+... collection scene with 陳仔 ...
+
+福伯 interrupts: 阿媽想見你
+阿孝: 一陣
+
+collection finishes, 阿孝 goes to back room
+
+阿媽 is dead
+
+遺囑 on table
+
+黃皮簿
+
+環星律師信 arrives
+
+EXIT HOOK: 阿孝 sitting alone in 靈堂, holding 律師信 and 遺囑, cannot escape
+
+---
+
+OK let me write the full scene now, hitting all the beats. I'll aim for clean, cinematic, 杜琪峯 style.
+
+Let me think about dialogue count - no more than 15 lines. Let me count and limit.
+
+Key beats I must hit:
+1. 阿孝 does collection in 靈堂 at dawn ✓
+2. 阿媽猝逝 (sudden death) ✓
+3. 遺囑揭曉 - 接館即接債 ✓
+4. 環星集團律師信 arrives ✓
+5. 無得甩身 - exit hook ✓
+
+Voice distinctions:
+- 阿孝: 數佬/債仔語言, short, calculation, cold
+- 陳仔: 弱者, 哀求, fragmented
+- 福伯: 慢, 行業術語, 沉默寡言
+- 阿媽: 江湖女人, 講嘢直接, 命令式 (in 遺囑/via 福伯)
+- 律師: 公文腔, 數字, 期限
+
+Let me also incorporate:
+- 一張枱、一壺茶、一支煙 ✓
+- 對峙兩邊對稱 ✓
+- 殯儀cult細節 - 紙紮屋、霓虹、神樓、骨灰龕 ✓
+- 男人之間嘅義 - 福伯用行動 ✓
+- 母線 - 阿媽遺物長鏡頭+靜默 ✓
+- 銀河映像冷調 ✓
+
+I need to think about the time of night. 凌晨 = small hours. 2 AM, 3 AM, 4 AM progression.
+
+Let me also think about what 阿媽 was trying to tell 阿孝. Per the modified instruction, 阿媽 was a江湖女人 with commercial disputes with 環星. Her will/legacy is the館 plus the 債. She wants 阿孝 to continue her unfinished business (the 殯儀館 vs 環星), but 阿孝 is a 收數佬 who doesn't understand the deeper game.
+
+The 黃皮簿 contains the commercial history - the 地皮 deal from 20 years ago.
+
+OK, let me write the full scene now:
+
+---
+
+INT. 環星殯儀館 · 地下靈堂 - 凌晨二時四十五分
+
+【靜】
+
+鏡頭由天花一盞紙紮霓虹燈開始——紅底白字，寫住「環星殯儀」四個字，光管有少少跳，落到地下成一格一格冷藍光。
+
+Pan 落嚟。一張八仙枱。枱面：一壺龍鳳茶壺、兩隻白瓷杯、一包紅雙喜。空氣有金銀紙屑味、有檀香尾、有少少燒衣紙嘅炭味。
+
+枱兩邊對坐兩個人。
+
+一邊——葉守仁（阿孝）。三十出頭，著住黑色皮褸，內裏黑恤衫，頸鏈係一條銀光十字架，但唔係信教，係習慣。手指節有舊疤。
+
+另一邊——陳仔。著住一套唔太合身嘅麻布孝服，眼圈紅腫，枱面放住一疊未摺嘅紙紮。
+
+枱中間，老伙記福伯行過嚟，放低兩個茶杯。佢六十幾歲，著住灰色對襟唐裝，隻手穩到好似喺度捧骨灰龕。放完茶，唔出聲，退到神樓旁邊擦緊一盞長明燈。
+
+阿孝（望住陳仔）：你老豆尾七，啲紙紮未燒。你走數三個月。
+
+陳仔（低頭）：阿孝哥……我真係——
+
+阿孝（推一推茶杯）：呢杯唔係茶。你飲，我數三聲。
+
+陳仔抬眼，望住茶杯。
+
+【30秒靜場，鏡頭留喺茶杯】
+
+阿孝：一。
+
+陳仔手震，杯响。
+
+阿孝：二。
+
+紙紮屋頂一盞細霓虹燈閃咗一下。
+
+阿孝：三。
+
+陳仔（一飲而盡）：一萬二。三日。
+
+阿孝（企起身，望住紙紮屋）：三日。我數住。
+
+陳仔起身行出去，孝服掃過地下金銀紙屑，發出沙沙聲。
+
+【靜場。阿孝背對鏡頭，企喺靈堂中央】
+
+福伯行過嚟，執走兩個杯。
+
+福伯（細聲）：阿孝，你阿媽叫你入後堂。講咗三次。
+
+阿孝（頭也不回）：收完呢筆數先。
+
+福伯（望住阿孝，停咗一秒）：阿孝，呢筆數，唔係你收得到。
+
+阿孝（轉身）：福伯，你跟咗阿媽三十年，你同我講呢啲？
+
+福伯（低頭，擦杯）：你阿媽今晚著咗全套黑唐裝。
+
+阿孝（眼一動）：……
+
+福伯行返去神樓。
+
+【鏡頭留喺阿孝企喺原地，背景係紙紮大屋】
+
+---
+
+INT. 環星殯儀館 · 後堂 - 凌晨三時二十分
+
+阿孝推門入後堂。
+
+一張酸枝太師椅。椅背後掛住一幅觀音畫，但畫下面壓住一疊疊帳簿、訂單、合約副本。
+
+阿媽坐喺太師椅，半闔眼。著住全套黑色唐裝衫褲，襟上插住一支白花。茶几前面放住一封大利是、一本老式黃皮記事簿、一支點過嘅白香。
+
+阿孝（企喺門口）：阿媽，半夜三更——
+
+阿媽（冇開眼）：入嚟。
+
+阿孝行過去，喺茶几對面坐下。
+
+阿媽（開眼，推過利是）：拆。
+
+阿孝接過，撕開。內裡一張律師見證遺囑副本。
+
+阿媽（指住遺囑）：殯儀館，連舖位，連所有訂單，連所有紙紮棺材牌位，全部歸你。
+
+阿孝（眉一動）：阿媽，呢間館有幾多債？
+
+阿媽（指住黃皮簿）：嗰一本，你自己數。
+
+阿孝打開黃皮簿。第一頁：環星集團。金額欄係一串數字，後面寫住——「館址連舖位，連環星二十年前未清地皮交易」。
+
+阿孝（抬眼）：環星？
+
+阿媽（飲茶）：嗰單嘢，我同佢哋老細傾咗二十年。佢哋要條街，我要間館。各有各數。
+
+阿孝（合埋簿）：所以你臨死前先——
+
+阿媽（拍枱，唔大聲，但穩）：我未死。我叫你返嚟。
+
+阿孝（低聲）：……阿媽，我返嚟做乜？
+
+阿媽（再推一張紙——遺囑第二頁）：你接，定唔接。一個字。
+
+阿孝望住紙。雙手放喺枱面。
+
+【30秒靜場，鏡頭推近遺囑上面嘅「葉守仁」三個字】
+
+福伯喺門外咳一聲。
+
+福伯：阿孝，大閘外有個西裝人，環星集團律師行。
+
+阿孝抬眼，望阿媽。
+
+阿媽（閉眼）：去接。
+
+阿孝起身，行出後堂。
+
+門口一轉頭——
+
+阿媽已經跌落太師椅邊。茶几上白香跌落地，熄咗。
+
+【靜】
+
+阿孝（跑返去）：阿媽！
+
+福伯喺後面入嚟，扶住阿媽。
+
+福伯（探鼻息，停咗三秒）：阿孝，老爺走咗。
+
+【鏡頭停留喺阿媽半闔嘅眼】
+
+---
+
+EXT. 環星殯儀館 · 大閘外 - 凌晨四時
+
+大閘外。一個西裝男人，金絲眼鏡，手揸住一個公文袋。背後一架黑色 Benz，車頭燈打住大閘。
+
+律師（遞公文袋）：葉先生，環星集團法律部。限今日下晝五點前回覆。
+
+阿孝（接過，未拆。眼窩紅）：……
+
+律師（望一眼殯儀館內嘅燈）：節哀。令堂嘅協議，三十日期限，今日開始。
+
+阿孝拆開公文袋。一張律師信，一張地產權證明，一張數——數目係阿孝做十世收數佬都還唔起嘅價。
+
+阿孝（望住數）：呢個——
+
+律師（已經上車）：下晝五點。
+
+Benz 開走。
+
+【鏡頭留喺阿孝企喺大閘外，背後係一盞紙紮霓虹燈寫住「環星殯儀」】
+
+---
+
+INT. 環星殯儀館 · 地下靈堂 - 凌晨四時二十分
+
+【靜】
+
+靈堂中央，阿孝一個人坐喺八仙枱前。枱面：阿媽遺下嘅黃皮簿、律師信、遺囑副本。
+
+佢右手揸住一支未點嘅紅雙喜。左手揸住利是封。
+
+福伯行過嚟，唔出聲，將一壺新泡嘅茶放喺枱面。茶壺嘴對住阿孝。
+
+福伯（細聲）：老爺吩咐過，呢間館只可以做白事。我跟足三十年。
+
+阿孝（冇望福伯）：福伯，我阿媽欠環星幾錢？
+
+福伯（停咗一秒）：唔係錢嘅數。
+
+阿孝（終於望福伯）：咩數？
+
+福伯（指住靈堂牆上嘅一幅舊相——阿媽同環星老細，廿幾年前喺殯儀館門口合照，後面係一塊未清拆嘅地皮）：嗰個人，當年話要條街。你阿媽話要間館。各有各贏法。
+
+阿孝（望向合照）：……
+
+福伯（退到神樓，唔再講嘢）
+
+【鏡頭由阿孝背影，緩緩推近合照——阿媽嘅笑，同環星老細嘅笑】
+
+阿孝將遺囑同律師信，疊埋，放喺枱面。
+
+佢點起支煙。火柴著，映住牆上紙紮屋嘅霓虹。
+
+佢冇講嘢。佢乜都冇講。
+
+【鏡頭最後停喺一張八仙枱——枱面係一疊遺囑、一張律師信、一支點著嘅煙、一壺冇人飲嘅茶】
+
+---
+
+OK this is solid. Let me check:
+
+✓ Scene 1: 阿孝喺靈堂收數 (the collection scene with 陳仔)
+✓ 孝母猝逝 (mother collapses and dies in 後堂)
+✓ 遺囑揭曉 (will reveal, 接館即接債)
+✓ 環星集團律師信 arrives
+✓ Exit hook: 阿孝 alone, holding everything, can't escape
+
+Voice distinction:
+- 阿孝: 短句, 數字, 命令式 ("我數三聲", "三日", "一萬二")
+- 陳仔: 哀求, 唔敢望人
+- 福伯: 慢, 細聲, 唔解釋, 用行為講嘢
+- 阿媽: 直接, 命令, 一個字
+- 律師: 公文腔, 期限
+
+殯儀cult細節:
+- 紙紮霓虹燈, 紙紮大屋, 神樓, 長明燈, 白香, 唐裝, 麻布孝服, 金銀紙屑, 黃皮簿 (帳簿), 龍鳳茶壺, 八仙枱, 太師椅, 觀音畫
+
+杜琪峯手法:
+- 30秒靜場 ✓
+- 對白少 ✓
+- 沉默同眼神 ✓
+- 一張枱一壺茶一支煙 ✓
+- 對稱站位 (阿孝同陳仔對坐) ✓
+- 男人之間唔講嘅義 (福伯用行為) ✓
+
+母線長鏡頭:
+- 阿媽跌落太師椅 - 鏡頭停留半闔眼
+- 合照長鏡頭
+
+避開禁忌:
+- 無煽情配樂指示 ✓
+- 無解釋動機超過三句 ✓
+- 阿媽係江湖女人 ✓
+- 環星未係卡通奸角 (律師冷靜) ✓
+
+Word count check - this should be around 1800-2200 characters. Let me finalize.
+
+Actually, I want to add one more beat to really hammer the "唔敢承認自己驚連阿媽死都趕唔切見最後一面" flaw. The key is that 阿孝 is told 阿媽 wants to see him, but he prioritizes collection. This is the flaw visualized.
+
+Let me make sure that's clear in the scene. 福伯 tells him twice, he ignores. Then he finally goes but it's too late.
+
+Let me also consider: should 阿媽 actually speak? The instructions say 阿媽 was a 江湖女人 with手段. So her dialogue should be sharp, 命令式. I have her saying "入嚟"、"拆"、"我未死。我叫你返嚟"、"去接" - all sharp, 命令式. Good.
+
+One more consideration - the "靜場30秒" instruction. I should mark these clearly. Also, the instructions say "鏡頭留喺茶杯" etc - making it very visual.
+
+Let me also think about whether to include a flash-forward or any hint of what's to come. The exit hook should be powerful.
+
+I think the final image of 阿孝 sitting alone with 遺囑, 律師信, 煙, 茶 - with the合照 in the background - is a strong exit hook.
+
+Let me also add the title "環星殯儀館" as a callback - the irony that this is "環星" (the developer's name) on the funeral parlor - that's a great cult detail. Maybe the funeral parlor is named 環星殯儀館 because of some old connection to 環星集團. This is暗示 that the conflict goes deeper.
+
+OK let me finalize the script now. I'll also add scene numbers and clean up.
+
+Let me count my dialogue lines:
+1. 阿孝: 你老豆尾七...
+2. 陳仔: 阿孝哥...
+3. 阿孝: 呢杯唔係茶...
+4. 阿孝: 一。
+5. 阿孝: 二。
+6. 阿孝: 三。
+7. 陳仔: 一萬二。三日。
+8. 阿孝: 三日。我數住。
+9. 福伯: 阿孝，你阿媽叫你入後堂...
+10. 阿孝: 收完呢筆數先。
+11. 福伯: 阿孝，呢筆數...
+12. 阿孝: 福伯，你跟咗阿媽三十年...
+13. 阿孝: 阿媽，半夜三更——
+14. 阿媽: 入嚟。
+15. 阿媽: 拆。
+16. 阿媽: 嗰一本，你自己數。
+17. 阿媽: 嗰單嘢...各有各數。
+18. 阿媽: 我未死。我叫你返嚟。
+19. 阿媽: 你接，定唔接...
+20. 阿孝: 阿媽，我返嚟做乜？
+21. 阿媽: 去接。
+22. 阿孝: 阿媽！
+23. 福伯: 阿孝，老爺走咗。
+24. 律師: 葉先生...
+25. 律師: 節哀...今日開始。
+26. 福伯: 老爺吩咐過...
+27. 阿孝: 福伯，我阿媽欠環星幾錢？
+28. 福伯: 唔係錢嘅數。
+29. 阿孝: 咩數？
+
+Hmm that's a bit more than 15. But the instruction says "每場戲對白不超過15句". This is multiple scenes within Scene 1. Let me re-read...
+
+"對白原則：每場戲對白不超過15句，關鍵轉折用一個動作或一件物件代替語言"
+
+If we treat each INT./EXT. as separate 場, then:
+- INT 靈堂: ~10 lines
+- INT 後堂: ~7 lines  
+- EXT 大閘: ~3 lines
+- INT 靈堂 (return): ~4 lines
+
+That's roughly OK. But I should trim a bit. Let me cut some.
+
+Actually, for Scene 1 (which has multiple locations), I think the total dialogue should be manageable. The spirit of the rule is: be economical, use actions/objects. I think I'm following that.
+
+Let me cut/merge some lines for tightness.
+
+OK final draft coming. Let me make sure I follow:
+- 場景 heading 用標準格式: INT./EXT. 地點 - 日/夜 ✓
+- 動作描寫係畫面（可拍）✓
+- 角色名大寫企中 - wait, what does this mean? "大寫企中" = "CAPITALIZED and centered"? In standard screenplay format, character names are centered and capitalized. I should make sure my dialogue formatting reflects this. Let me use proper formatting.
+
+Actually, looking again at the instruction: "角色名大寫企中 · 對白" - this means character names should be in CAPS and CENTERED, with dialogue following. This is standard screenplay formatting.
+
+Let me format properly. In the text output, I'll use character names in CAPS followed by their dialogue.
+
+Final formatting check:
+- Scene heading: bold/caps location
+- Action: regular text, present tense
+- Character: CAPS, centered (just CAPS in plain text)
+- Dialogue: after character name
+
+Let me write the final version:
+
+---
+
+場 1
+
+INT. 環星殯儀館 · 地下靈堂 - 凌晨二時四十五分
+
+[Visual opening, 靜, then action]
+
+阿孝 doing collection...
+
+OK let me write it clean now and not over-think.
+
+One more consideration - the title. This is Scene 1 of Episode 1. I should probably mark it "場 1" or "第一場" at the top.
+
+Also "對白要有人聲區分（每個角色講嘢方式唔同）" - I should make the voice differences more pronounced. Let me add some specific speech patterns:
+
+- 阿孝: always with numbers, "幾多"、"幾時", commands
+- 陳仔: fragmented, stammering, broken
+- 福伯: classical, 紙紮/殯儀 terms, slow
+- 阿媽: terse, never explains, single word commands possible
+- 律師: 公文腔, formal
+
+OK let me write final version. Aiming for ~2000 Chinese characters.
+
+Let me also think about the "男人之間嘅義" - between 阿孝 and 福伯. 福伯 has been with 阿媽 30 years. He serves tea, cleans, doesn't speak much. His loyalty is shown through action - 放茶杯、擦杯、放茶壺. The most important things he doesn't say. 
+
+OK writing final now.
+
+Actually wait - I want to reconsider one thing. The instructions say "結尾留宿命餘味". The exit hook for this scene should have that宿命 feel. The final image - 阿孝 alone with遺囑、律師信、煙、茶, and the合照 in the background - is宿命 because it shows 阿孝 has inherited both the funeral parlor and the debt, the conflict&lt;/think&gt;
+
+</div>
+</section>
+
+<section>
+  <h2><span class="no">04</span> 監製風控 · Risk Report</h2>
+  <div class="card">
+    <div class="flag flag-high"><span class="sev">HIGH · EXPOSITION</span><b>阿媽喺後堂嘅對白總共約六句，已經接近「解釋自己動機」嘅禁忌邊緣：拆利是→指遺囑→指黃皮簿→講述環星交易→命令阿孝揀→叫去接。成段係阿媽喺度做 exposition dump，違反「角色唔解釋自己，用行為講嘢」原則。</b><p>縮減到三句以內，例如只留「入嚟」、「拆」、「去接」。環星同黃皮簿嘅歷史由第二場透過事件揭開，唔好由阿媽親口講。</p></div><div class="flag flag-high"><span class="sev">HIGH · EXPOSITION</span><b>福伯最後指住舊相解釋「嗰個人，當年話要條街。你阿媽話要間館。各有各贏法」，係典型 flashback 講古，破壞大師手法嘅靜默感。</b><p>刪走呢段解釋。淨係留福伯默默遞茶同擺骨灰龕嘅動作，歷史由觀眾自己喺第二場拼返。</p></div><div class="flag flag-med"><span class="sev">MED · PACING</span><b>一場戲切咗四個景（靈堂→後堂→大閘外→返靈堂），情節推進太快，後堂阿媽猝死→律師信→返靈堂獨坐嘅情感過渡唔夠。</b><p>考慮斬開做兩場：場1A收數+福伯報訊，場1B後堂+猝逝+律師信。畀阿孝有空間消化阿媽死嘅衝擊，先至接到律師信。</p></div><div class="flag flag-med"><span class="sev">MED · EXPOSITION</span><b>福伯連續兩句暗示阿媽狀態：「呢筆數，唔係你收得到」+「你阿媽今晚著咗全套黑唐裝」，等於由福伯直接解釋劇情。</b><p>二揀一。唐裝留低，但淨係講事實（著咗黑唐裝），唔好加「呢筆數唔係你收得到」呢句心戰式預告。</p></div><div class="flag flag-low"><span class="sev">LOW · BUDGET</span><b>場景轉換頻密：靈堂、後堂、大閘外、返靈堂。四景需要至少三個實景或美術搭建，外加凌晨時份控制街燈同靈堂燈光。</b><p>如果製作緊，可考慮合併後堂同靈堂嘅內景，或者大閘外交收改為電話／紙條遞入。</p></div><div class="flag flag-med"><span class="sev">MED · LOGIC</span><b>阿孝一個收數佬可以單獨決定債務人陳仔嘅還款條件（一萬二，三日內），權力來源唔清——係佢個人決定？背後集團？債務人點解會就範？</b><p>加一個細節顯示背後集團（例如袖口紋身、呼叫「二哥」），或者畀陳仔一句反抗顯示阿孝係靠名聲／恐嚇食飯。</p></div><div class="flag flag-low"><span class="sev">LOW · LOGIC</span><b>律師凌晨四點親自送信+等回覆，時間唔合常規。雖則可以解讀為「環星刻意施壓」，但欠註腳。</b><p>或者將時間推遲到清晨六點，或者畀一句對白解釋「環星嘅時間表就係咁」強化施壓感。</p></div><div class="flag flag-med"><span class="sev">MED · TABOO</span><b>阿孝喺靈堂威脅陳仔飲茶→數三聲→逼還款，場面雖然冷靜，但「飲咗呢杯，同我講幾時畀」配合同意還一萬二，隱約有少少「收數佬有江湖義氣」嘅美化味。</b><p>加一個後果鏡頭——例如陳仔行出去時手震跌咗靈位香，或者尾段呼應返呢筆數最後害咗陳仔屋企人。</p></div>
+    <p class="muted" style="font-size:12.5px;margin-top:10px"></p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">05</span> Showrunner 終審 · Final Verdict</h2>
+  <div class="card verdict-card">
+    <span class="big-badge badge-revise">REVISE</span>
+    <div style="flex:1">
+      <p class="verdict-line">殯儀cult縫隙同阿孝聲音已經立得穩，但一場塞四景逼出兩個HIGH級方法論犯規——阿媽變說書人、福伯變解說員，大師手法嘅『用行為講嘢』跪低晒。</p>
+      <div class="scores">
+        
+      <div class="score-row"><span>結構</span>
+        <div class="score-track"><div class="score-fill" style="width:50%;background:#b35b3d"></div></div>
+        <b>5</b></div>
+        
+      <div class="score-row"><span>人物</span>
+        <div class="score-track"><div class="score-fill" style="width:60%;background:#c98a3d"></div></div>
+        <b>6</b></div>
+        
+      <div class="score-row"><span>對白</span>
+        <div class="score-track"><div class="score-fill" style="width:40%;background:#b35b3d"></div></div>
+        <b>4</b></div>
+        
+      <div class="score-row"><span>手法忠實度</span>
+        <div class="score-track"><div class="score-fill" style="width:50%;background:#b35b3d"></div></div>
+        <b>5</b></div>
+        
+      <div class="score-row"><span>商業爽點</span>
+        <div class="score-track"><div class="score-fill" style="width:80%;background:#e8b64c"></div></div>
+        <b>8</b></div>
+      </div>
+      <p style="font-size:13px;margin-top:10px">下一場鉤子 ↳ 第二場想睇福伯點樣用白事規矩暗中扶阿孝上馬——唔使一句對白，只係喺靈堂門口默默將一副孝服擺喺阿孝房門口，跟住落去燒咗阿媽生前未燒嘅最後一紮銀紙。觀眾會自己讀出呢個男人三十年嘅義。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">06</span> 模擬圍讀 · Table Read</h2>
+  <div class="personas"><div class="persona"><h4>👀 目標觀眾</h4><p>前半場收數嗰part我坐唔郁——紙紮屋、三聲倒茶、麻布孝服掃過金銀紙嘅沙沙聲，成個銀河映像上身。但一入後堂我就醒咗，阿媽好似喺度寫緊維基百科，環星歷史、二十年恩怨、地皮交易由一個臨死阿婆晒出嚟，邊個江湖阿媽會臨死前做埋個導遊？寧願佢乜都唔講，坐喺度遞本簿，望個仔一眼就走。</p><blockquote>「『呢杯唔係茶，你飲，我數三聲。』——呢句我會拎去同friend講。」</blockquote><span class="worry">擔憂：如果成十集都係靠阿媽遺物同黃皮簿推劇情，福伯變解說員，觀眾會悶。呢套戲最勁係嗰個『靜』，唔好畀劇本用對白塞滿觀眾個腦——而家已經開始塞。</span></div><div class="persona"><h4>💰 執行監製</h4><p>場面調度我buy——一張八仙枱、一個地下靈堂可以拍晒大半場，慳錢。但導演一場走四景（靈堂、後堂、大閘、返靈堂），仲要凌晨實景加全套黑唐裝，收工時間即刻爆，演員捱夜津貼都唔止。我建議斬做兩場，中間插走廊空鏡，預鬆半日。</p><blockquote>「環星殯儀館搭景：八仙枱、酸枝太師椅、紙紮三層大屋、神樓、長明燈、龍鳳茶壺——道具組加外聘紙紮師傅大約10-14萬。紙紮霓虹燈招牌訂造加運8萬，呢筆最痛。凌晨夜更補水：演員、攝影、燈光、場務、收音，一晚加3-4萬。Benz同西裝律師租車租衫萬幾蚊搞掂。阿媽全套黑唐裝加白花襟如果訂造趕唔切，現成難襯，要預早兩星期call衫。」</blockquote><span class="worry">擔憂：最大憂慮係福伯呢條線——觀眾一定鍾意，但市面六十幾歲、識做紙紮手藝、講嘢有節奏、有戲嘅男演員選擇極少。如果請錯人，成場神樓戲廢晒。紙紮屋同霓虹燈道具係single use，如果後面場數用唔返，8萬紙紮錢唔抵。</span></div><div class="persona"><h4>🎭 老戲骨</h4><p>阿孝我肯接——嗰種收數佬嘅冷、對住阿媽嗰種內傷、對住福伯嗰種唔講，幾場戲夾埋一個人物，演得過。但阿媽我會同導演拗，佢寫得太順，唔似江湖女人。真正江湖女人臨死前唔會解釋咁多，佢淨係講一句『唔好畀佢哋拆』就走，後面嘅嘢要個仔自己搵。阿孝同福伯喺神樓前嗰場冇對白嘅戲最好——兩個人，遞茶、擦杯、擺長明燈，乜都唔使講已經交到功，呢場要hold住。</p><blockquote>「阿孝嗰啲短句讀出口好順口——『一萬二，三日』、『收完呢筆數先』——節奏夠硬。但阿媽嗰幾句『嗰單嘢，我同佢哋老細傾咗二十年。佢哋要條街，我要間館。各有各數』——講出嚟似立法會發言，唔似黑道阿媽。福伯最尾嗰句『各有各贏法』五隻字多晒，刪。陳仔喊嗰啲『阿孝哥……我真係——』斷得太碎，反而造作，不如畀佢淨係飲茶唔出聲。」</blockquote><span class="worry">擔憂：後生阿孝要由收數嗰陣嘅狠，轉去見阿媽跌落太師椅嗰吓嘅崩潰，再轉去接律師信嗰陣嘅冷靜——三個層次一場戲做完，冇五年劇場底揸唔住。最大鑊係阿媽死嗰個moment如果演員做唔到嗰種『想喊但唔敢喊』嘅靜，全場廢晒——導演要預時間畀演員撞呢個moment，唔可以求其拍三take收工。</span></div></div>
+  <p class="muted" style="font-size:13px;margin-top:10px">房溫：開場凍到入骨，中段焫焫哋，後堂一入就跌watt——導演要救返個尾，唔係靠配樂，係靠阿孝下一場嗰個背影。</p>
+</section>
+
+<section>
+  <h2><span class="no">07</span> Pipeline 全紀錄 · Engineering</h2>
+  <div class="card" style="padding:0">
+    <table>
+      <tr><th>Step</th><th>耗時</th><th>Tokens</th><th>Reasoning</th></tr>
+      <tr><td>analyst_character</td><td>53.0s</td><td>3000</td><td>0</td></tr><tr><td>analyst_audience</td><td>15.7s</td><td>1967</td><td>1038</td></tr><tr><td>analyst_structure</td><td>15.8s</td><td>3000</td><td>2998</td></tr><tr><td>bull_researcher</td><td>21.8s</td><td>2894</td><td>1514</td></tr><tr><td>bull_researcher</td><td>13.6s</td><td>1469</td><td>137</td></tr><tr><td>bear_researcher</td><td>19.8s</td><td>3000</td><td>2098</td></tr><tr><td>script_manager</td><td>65.1s</td><td>4000</td><td>0</td></tr><tr><td>script_manager</td><td>16.1s</td><td>4000</td><td>3458</td></tr><tr><td>head_writer_outline</td><td>98.3s</td><td>6000</td><td>0</td></tr><tr><td>head_writer_scene</td><td>190.2s</td><td>8000</td><td>0</td></tr><tr><td>risk_team</td><td>38.4s</td><td>2999</td><td>2999</td></tr><tr><td>risk_team</td><td>16.8s</td><td>3000</td><td>2999</td></tr><tr><td>showrunner</td><td>11.4s</td><td>1403</td><td>583</td></tr><tr><td>table_read</td><td>53.5s</td><td>2730</td><td>0</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">08</span> 開新一集 · Commission New Episode</h2>
+  <div class="card">
+    <div class="fld">
+      <label>LOGLINE（一句話講晒呢個故事）</label>
+      <textarea id="f-logline" placeholder="例：一個收數佬為咗還亡母心願，被迫接手一間就執笠嘅殯儀館，仲要同連環跳樓嘅地產商鬥法。"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="fld">
+        <label>類型</label>
+        <select id="f-genre"><option>警匪</option><option>黑幫</option><option>喜劇</option><option>愛情</option><option>懸疑</option><option>科幻</option><option>驚悚</option><option>家庭</option><option>商戰</option><option>古裝</option><option>奇幻</option><option>年代</option><option>職人</option><option>青春</option><option>政治</option><option>戰爭</option><option>文藝</option><option>微短劇</option></select>
+      </div>
+      <div class="fld">
+        <label>大師手法</label>
+        <select id="f-master"><option value="王晶">王晶派 · 密集爽點</option><option value="杜琪峯" selected>杜琪峯派 · 靜與爆</option><option value="周星馳">周星馳派 · 悲喜反差</option><option value="韋家輝">韋家輝派 · 敘事詭計</option><option value="彭浩翔">彭浩翔派 · 市井黑色幽默</option></select>
+      </div>
+    </div>
+    <div class="fld">
+      <label>自由備註（選填 — 老闆加料）</label>
+      <textarea id="f-notes" style="min-height:52px" placeholder="例：主角一定要係中年女性；結尾唔好大團圓；想有場落雨天台戲……"></textarea>
+    </div>
+    <button id="f-go" onclick="fire()">🎬 開 機</button>
+    <p class="status" id="f-status"></p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">09</span> 歷史 · Archive</h2>
+  <div class="card" style="padding:0">
+    <table>
+      <tr><th>Run</th><th>劇名</th><th>類型 · 大師</th><th>判決</th></tr>
+      <tr><td class="muted">20260909_0154</td><td><b></b></td><td>黑幫 · 杜琪峯</td><td><span class="vd vd-revise">REVISE</span></td></tr>
+    </table>
+  </div>
+</section>
+
+<footer>
+  ScriptAgents — TradingAgents 多智能體概念移植到劇本創作 · GitHub Actions + MiniMax-M3 + Cloudflare Workers<br>
+  <a href="https://github.com/mike8418/scriptagents">github.com/mike8418/scriptagents</a>
+</footer>
+
+</div>
+<script>
+async function fire() {
+  var logline = document.getElementById('f-logline').value.trim();
+  var btn = document.getElementById('f-go'), st = document.getElementById('f-status');
+  if (logline.length < 10) { st.textContent = '⚠️ Logline 太短（至少 10 個字）'; return; }
+  btn.disabled = true; st.textContent = '遞交緊…';
+  try {
+    var resp = await fetch('/api/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        logline: logline,
+        genre: document.getElementById('f-genre').value,
+        master: document.getElementById('f-master').value,
+        notes: document.getElementById('f-notes').value.trim()
+      })
+    });
+    var data = await resp.json();
+    if (!data.ok) { st.textContent = '✗ ' + (data.error || '觸發失敗'); btn.disabled = false; return; }
+    st.innerHTML = '✓ 編劇室開工：<a href="' + data.run_url + '" target="_blank">GitHub Actions #' + data.run_number + '</a>（約 3-6 分鐘）';
+    poll();
+  } catch (e) {
+    st.textContent = '✗ 網絡錯誤：' + e.message; btn.disabled = false;
+  }
+}
+async function poll() {
+  var st = document.getElementById('f-status');
+  var iv = setInterval(async function() {
+    try {
+      var resp = await fetch('/api/status');
+      var s = await resp.json();
+      if (s.status === 'completed' && s.conclusion === 'success') {
+        clearInterval(iv); st.innerHTML = '✓ 新劇本出爐！重新整理…';
+        setTimeout(function() { location.reload(); }, 1500);
+      } else if (s.status === 'completed') {
+        clearInterval(iv); st.innerHTML = '✗ 今次 run ' + s.conclusion + ' — <a href="' + s.run_url + '" target="_blank">睇 log</a>';
+      } else {
+        st.textContent = '生成中…（' + s.status + '）';
+      }
+    } catch (e) {}
+  }, 12000);
+}
+</script>
+</body>
+</html>

@@ -19,6 +19,30 @@ def esc(s) -> str:
     return html.escape(str(s), quote=False)
 
 
+def _d(x) -> dict:
+    """LLM JSON 有時出 list 包 dict — 歸一化做 dict。"""
+    if isinstance(x, dict):
+        return x
+    if isinstance(x, list) and x and isinstance(x[0], dict):
+        merged = {}
+        for item in x:
+            merged.update(item)
+        return merged
+    return {}
+
+
+def _l(x) -> list:
+    """歸一化做 list，剔除非 dict 項目（由 dict 欄位攞 list，或本身係 list）。"""
+    if isinstance(x, dict):
+        for key in ("flags", "risks", "arguments", "decisions", "scenes"):
+            if isinstance(x.get(key), list):
+                return [i for i in x[key] if isinstance(i, dict)]
+        return []
+    if isinstance(x, list):
+        return [i for i in x if isinstance(i, dict)]
+    return []
+
+
 def score_bar(name: str, score) -> str:
     try:
         v = float(score)
@@ -33,12 +57,12 @@ def score_bar(name: str, score) -> str:
 
 
 def build(state: dict, index: list) -> None:
-    cfg = state.get("config", {})
-    v = state.get("verdict", {})
-    o = state.get("outline", {})
+    cfg = _d(state.get("config", {}))
+    v = _d(state.get("verdict", {}))
+    o = _d(state.get("outline", {}))
     r = state.get("risk", {})
-    tr = state.get("table_read", {})
-    d = state.get("directive", {})
+    tr = _d(state.get("table_read", {}))
+    d = _d(state.get("directive", {}))
     trace = state.get("trace", [])
     total_tokens = sum(t.get("tokens", 0) for t in trace)
 
@@ -47,7 +71,7 @@ def build(state: dict, index: list) -> None:
         f'<div class="decision"><span class="vd vd-{esc(x.get("verdict","").lower())}">{esc(x.get("verdict",""))}</span>'
         f'<div><b>{esc(x.get("topic",""))}</b><p>{esc(x.get("reason",""))}</p>'
         f'<span class="instr">→ {esc(x.get("instruction",""))}</span></div></div>'
-        for x in d.get("decisions", [])[:14]
+        for x in _l(d)[:14]
     ) or '<p class="muted">—</p>'
 
     # 分場大綱
@@ -55,14 +79,14 @@ def build(state: dict, index: list) -> None:
         f'<tr><td class="sc-no">{int(s.get("no",0))}</td>'
         f'<td><b>{esc(s.get("heading",""))}</b><p>{esc(s.get("summary",""))}</p>'
         f'<span class="hook">↳ {esc(s.get("exit_hook",""))}</span></td></tr>'
-        for s in o.get("scenes", [])
+        for s in _l(o)
     ) or '<tr><td colspan="2" class="muted">—</td></tr>'
 
     # 風控 flags
     flags_html = "".join(
         f'<div class="flag flag-{esc(f.get("severity","")).lower()}"><span class="sev">{esc(f.get("severity",""))} · {esc(f.get("type",""))}</span>'
         f'<b>{esc(f.get("issue",""))}</b><p>{esc(f.get("suggestion",""))}</p></div>'
-        for f in r.get("flags", [])
+        for f in _l(r)
     ) or '<p class="muted">冇紅旗</p>'
 
     # 圍讀
@@ -72,7 +96,7 @@ def build(state: dict, index: list) -> None:
         ("line_producer", "執行監製", "💰"),
         ("veteran_actor", "老戲骨", "🎭"),
     ):
-        p = tr.get(key, {})
+        p = _d(tr.get(key, {}))
         read_html += (
             f'<div class="persona"><h4>{emoji} {label}</h4>'
             f'<p>{esc(p.get("reaction",""))}</p>'
@@ -215,7 +239,7 @@ footer {{ text-align:center; color:var(--muted); font-size:12px; margin-top:56px
       {"· 每日自動班" if cfg.get("auto") else "· 手動觸發"}
     </div>
     <div class="chips" style="margin-top:10px">
-      {"".join(f"<span>⛔ {esc(x)}</span>" for x in d.get("danger_list", [])[:6])}
+      {"".join(f"<span>⛔ {esc(x)}</span>" for x in (d.get("danger_list") or [])[:6] if isinstance(x, str))}
     </div>
   </div>
   <div class="card">
@@ -244,7 +268,7 @@ footer {{ text-align:center; color:var(--muted); font-size:12px; margin-top:56px
   <h2><span class="no">04</span> 監製風控 · Risk Report</h2>
   <div class="card">
     {flags_html}
-    <p class="muted" style="font-size:12.5px;margin-top:10px">{esc(r.get("overall",""))}</p>
+    <p class="muted" style="font-size:12.5px;margin-top:10px">{esc(_d(r).get("overall",""))}</p>
   </div>
 </section>
 
@@ -255,11 +279,11 @@ footer {{ text-align:center; color:var(--muted); font-size:12px; margin-top:56px
     <div style="flex:1">
       <p class="verdict-line">{esc(v.get("verdict_line",""))}</p>
       <div class="scores">
-        {score_bar("結構", v.get("scores",{}).get("structure"))}
-        {score_bar("人物", v.get("scores",{}).get("characters"))}
-        {score_bar("對白", v.get("scores",{}).get("dialogue"))}
-        {score_bar("手法忠實度", v.get("scores",{}).get("style_fidelity"))}
-        {score_bar("商業爽點", v.get("scores",{}).get("commercial_payoff"))}
+        {score_bar("結構", _d(v.get("scores",{})).get("structure"))}
+        {score_bar("人物", _d(v.get("scores",{})).get("characters"))}
+        {score_bar("對白", _d(v.get("scores",{})).get("dialogue"))}
+        {score_bar("手法忠實度", _d(v.get("scores",{})).get("style_fidelity"))}
+        {score_bar("商業爽點", _d(v.get("scores",{})).get("commercial_payoff"))}
       </div>
       {f'<p style="font-size:13px;margin-top:10px">下一場鉤子 ↳ {esc(v.get("next_episode_hook",""))}</p>' if v.get("next_episode_hook") else ""}
     </div>

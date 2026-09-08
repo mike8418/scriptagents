@@ -54,19 +54,40 @@ def call_agent(step: str, system: str, user: str, temp: float, max_tokens: int, 
     return content
 
 
-def call_json(step: str, system: str, user: str, temp: float, max_tokens: int, trace: list):
-    """JSON 崗位專用：解析失敗就帶糾正提示重試一次。"""
+def call_json(step: str, system: str, user: str, temp: float, max_tokens: int, trace: list,
+              required: list | None = None):
+    """JSON 崗位專用：解析失敗 or 缺 required keys → 帶糾正提示重試一次。"""
     content = call_agent(step, system, user, temp, max_tokens, trace)
+
+    def _ok(obj):
+        if required is None:
+            return True
+        return isinstance(obj, dict) and all(k in obj for k in required)
+
     try:
-        return extract_json(content)
+        obj = extract_json(content)
+        if _ok(obj):
+            return obj
+        raise ValueError(f"缺 required keys {required}")
     except ValueError:
         retry = (
-            "你上次嘅回覆喺 JSON 前面多咗文字，解析失敗。"
-            "重新輸出：**淨係 JSON**，第一個字元必須係 `{`，之前之後都唔可以有任何文字。\n\n"
-            "上次回覆開頭（僅供參考，唔好照抄開頭嗰啲文字）：\n" + content[:300]
+            "你上次嘅輸出解析失敗或者形狀唔啱。"
+            f"重新輸出：**淨係一個 JSON object**，必須齊呢啲頂層 key：{required or '正確結構'}"
+            "（之前之後唔可以有其他文字，第一個字元必須係 `{`）。\n\n"
+            "上次回覆開頭（僅供參考）：\n" + content[:300]
         )
         content2 = call_agent(step, system, user + "\n\n" + retry, temp, max_tokens, trace)
-        return extract_json(content2)
+        obj = extract_json(content2)
+        if _ok(obj) or required is None:
+            return obj
+        raise ValueError(f"{step} 重試後仍然缺 keys：{obj if isinstance(obj, dict) else type(obj)}")
+
+
+def wrap_list(obj, key: str):
+    """M3 有時會出頂層 array（得其中一個欄位）— 包返做 {key: [...]}。"""
+    if isinstance(obj, list):
+        return {key: obj}
+    return obj
 
 
 # ── 分析師團隊（temp 0.3）─────────────────────────────────
@@ -84,7 +105,7 @@ def analyst_character(logline: str, genre: str, trace: list) -> dict:
   "central_relationship": "最有力嘅人物關係軸",
   "casting_hooks": ["三個選角/寫戲時最搶眼嘅人物瞬間"]
 }}"""
-    return call_json("analyst_character", sys_, usr, 0.3, 3000, trace)
+    return call_json("analyst_character", sys_, usr, 0.3, 3000, trace, required=["protagonist"])
 
 
 def analyst_audience(logline: str, genre: str, trace: list) -> dict:
@@ -101,7 +122,7 @@ def analyst_audience(logline: str, genre: str, trace: list) -> dict:
   "genre_conventions_to_subvert": ["可以反套路上位嘅位"],
   "taboo_risks": ["呢個題材最易踩嘅受眾雷區"]
 }}"""
-    return call_json("analyst_audience", sys_, usr, 0.3, 2500, trace)
+    return call_json("analyst_audience", sys_, usr, 0.3, 2500, trace, required=["target_audience"])
 
 
 def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -> dict:
@@ -120,7 +141,7 @@ def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -
   "resolution": "結尾（唔好預支大團圓，留餘味）",
   "act_breaks": ["每個轉折位一句話"]
 }}"""
-    return call_json("analyst_structure", sys_, usr, 0.3, 3000, trace)
+    return call_json("analyst_structure", sys_, usr, 0.3, 3000, trace, required=["opening_hook"])
 
 
 # ── 力挺派 vs 挑刺派辯論（temp 0.5）───────────────────────
@@ -140,7 +161,7 @@ def bull_researcher(logline: str, genre: str, analyses: dict, trace: list) -> di
   ],
   "one_line_pitch": "用一句話講服 Showrunner 俾錢開機"
 }}"""
-    return call_json("bull_researcher", sys_, usr, 0.5, 3000, trace)
+    return call_json("bull_researcher", sys_, usr, 0.5, 3000, trace, required=["arguments"])
 
 
 def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
@@ -158,7 +179,7 @@ def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> di
   ],
   "kill_shot": "如果只可以改一樣嘢，改呢樣："
 }}"""
-    return call_json("bear_researcher", sys_, usr, 0.5, 3000, trace)
+    return call_json("bear_researcher", sys_, usr, 0.5, 3000, trace, required=["risks"])
 
 
 # ── 統籌拍板（temp 0.2 — 委員會終結者）───────────────────
@@ -187,7 +208,7 @@ def script_manager(logline: str, genre: str, master_name: str, analyses: dict,
   "protagonist_lock": {{"name": "", "desire": "", "flaw": ""}},
   "tone": ""
 }}"""
-    return call_json("script_manager", sys_, usr, 0.2, 4000, trace)
+    return call_json("script_manager", sys_, usr, 0.2, 4000, trace, required=["decisions", "beat_sheet"])
 
 
 # ── 主筆編劇（唯一執筆者 · temp 0.8）─────────────────────
@@ -217,7 +238,7 @@ def head_writer_outline(logline: str, genre: str, master_name: str, directive: d
   ],
   "series_engine": "如果拍成劇集，呢個故事嘅持續引擎係乜"
 }}"""
-    return call_json("head_writer_outline", sys_, usr, 0.7, 6000, trace)
+    return call_json("head_writer_outline", sys_, usr, 0.7, 6000, trace, required=["title", "scenes"])
 
 
 def head_writer_scene(logline: str, genre: str, master_name: str, directive: dict,
@@ -267,7 +288,7 @@ def risk_team(logline: str, directive: dict, outline: dict, scene_text: str,
   "greenlights": ["明顯過關嘅位"],
   "overall": "一段總結"
 }}"""
-    return call_json("risk_team", sys_, usr, 0.1, 3000, trace)
+    return wrap_list(call_json("risk_team", sys_, usr, 0.1, 3000, trace), "flags")
 
 
 # ── Showrunner 終審（temp 0.2）───────────────────────────
@@ -293,7 +314,7 @@ def showrunner(logline: str, genre: str, master_name: str, directive: dict,
   "revision_notes": ["如果 REVISE，要改乜（PASS 就空 array）"],
   "next_episode_hook": "呢集寫完，下一場最想睇乜"
 }}"""
-    return call_json("showrunner", sys_, usr, 0.2, 3000, trace)
+    return call_json("showrunner", sys_, usr, 0.2, 3000, trace, required=["decision", "scores"])
 
 
 # ── 模擬圍讀（temp 0.7 — 反饋迴路）───────────────────────
@@ -317,4 +338,4 @@ Showrunner 判決：{json.dumps(verdict, ensure_ascii=False)}
   "veteran_actor": {{"reaction": "", "mouth_feel": "對白讀出口嘅手感", "worry": ""}},
   "room_temperature": "成個房嘅溫度總結（一句）"
 }}"""
-    return call_json("table_read", sys_, usr, 0.7, 3000, trace)
+    return call_json("table_read", sys_, usr, 0.7, 3000, trace, required=["audience", "line_producer", "veteran_actor"])
