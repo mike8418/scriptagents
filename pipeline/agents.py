@@ -260,7 +260,15 @@ def head_writer_scene(logline: str, genre: str, master_name: str, directive: dic
 3. 大師手法嘅對白法則全程生效
 4. 動作描寫係畫面（可拍），唔係小說心理描寫
 5. 場景 heading 用標準格式：INT./EXT. 地點 - 日/夜"""
-    return call_agent("head_writer_scene", sys_, usr, 0.8, 10000, trace)
+    return strip_preamble(call_agent("head_writer_scene", sys_, usr, 0.8, 10000, trace))
+
+
+def strip_preamble(text: str) -> str:
+    """M3 有時喺劇本前漏思考文字 — 由第一個 INT./EXT. 場景 heading 開始斬。"""
+    m = re.search(r"(?:^|\n)\s*(?:INT\.|EXT\.|內景|外景)", text, re.IGNORECASE)
+    if m and m.start() > 0:
+        return text[m.start():].lstrip("\n")
+    return text
 
 
 # ── 監製風控組（temp 0.1 — 求穩）─────────────────────────
