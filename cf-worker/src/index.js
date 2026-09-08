@@ -42,11 +42,11 @@ export default {
       return serveRepoFile(env, "outputs/latest/run.json", "application/json");
     }
 
-    // ?workflow=write[&auto=true] — cron-job.org / 手動補飛
+    // ?workflow=write[&auto=true] — cron-job.org / 手動補飛（write / write.yml 都得）
     const workflow = url.searchParams.get("workflow");
     if (workflow) {
-      if (workflow !== WORKFLOW_FILE) {
-        return json({ error: "invalid workflow", valid: [WORKFLOW_FILE] });
+      if (workflow !== WORKFLOW_FILE && workflow !== "write") {
+        return json({ error: "invalid workflow", valid: [WORKFLOW_FILE, "write"] });
       }
       const auto = url.searchParams.get("auto") === "true";
       const force = url.searchParams.get("force") === "1";
