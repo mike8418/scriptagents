@@ -105,7 +105,7 @@ def analyst_character(logline: str, genre: str, trace: list) -> dict:
   "central_relationship": "最有力嘅人物關係軸",
   "casting_hooks": ["三個選角/寫戲時最搶眼嘅人物瞬間"]
 }}"""
-    return call_json("analyst_character", sys_, usr, 0.3, 3000, trace, required=["protagonist"])
+    return call_json("analyst_character", sys_, usr, 0.3, 6000, trace, required=["protagonist"])
 
 
 def analyst_audience(logline: str, genre: str, trace: list) -> dict:
@@ -122,7 +122,7 @@ def analyst_audience(logline: str, genre: str, trace: list) -> dict:
   "genre_conventions_to_subvert": ["可以反套路上位嘅位"],
   "taboo_risks": ["呢個題材最易踩嘅受眾雷區"]
 }}"""
-    return call_json("analyst_audience", sys_, usr, 0.3, 2500, trace, required=["target_audience"])
+    return call_json("analyst_audience", sys_, usr, 0.3, 6000, trace, required=["target_audience"])
 
 
 def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -> dict:
@@ -141,45 +141,43 @@ def analyst_structure(logline: str, genre: str, scene_count: int, trace: list) -
   "resolution": "結尾（唔好預支大團圓，留餘味）",
   "act_breaks": ["每個轉折位一句話"]
 }}"""
-    return call_json("analyst_structure", sys_, usr, 0.3, 3000, trace, required=["opening_hook"])
+    return call_json("analyst_structure", sys_, usr, 0.3, 6000, trace, required=["opening_hook"])
 
 
 # ── 力挺派 vs 挑刺派辯論（temp 0.5）───────────────────────
 
 def bull_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
     sys_ = "你係編劇室嘅力挺派研究員（Bull Researcher）。你嘅職責係論證呢個故事最值得寫。只輸出 JSON。"
-    usr = f"""Logline：{logline}
+    usr = f"""【輸出合約】淨係輸出一個 JSON object。頂層 keys 必須係 ["arguments", "one_line_pitch"]。
+- "arguments" = array，必須有 3 個 object，每個 object 有 "point" / "evidence" / "how_to_execute" 三個非空字串
+- "one_line_pitch" = 一個非空字串
+- 之前之後唔可以有任何文字，第一個字元必須係 {{
+
+Logline：{logline}
 類型：{genre}
 分析師報告：{json.dumps(analyses, ensure_ascii=False)}
 
-提出三個「呢個故事非寫不可」嘅最強論點，輸出 JSON：
-{{
-  "arguments": [
-    {{"point": "", "evidence": "點解成立（引用分析師報告）", "how_to_execute": "執行要訣"}},
-    {{"point": "", "evidence": "", "how_to_execute": ""}},
-    {{"point": "", "evidence": "", "how_to_execute": ""}}
-  ],
-  "one_line_pitch": "用一句話講服 Showrunner 俾錢開機"
-}}"""
-    return call_json("bull_researcher", sys_, usr, 0.5, 3000, trace, required=["arguments"])
+提出三個「呢個故事非寫不可」嘅最強論點。
+結構示例（內容只係示意，唔好照抄）：
+{{"arguments": [{{"point": "例：殯儀館 vs 地產商嘅空間鬥爭自帶香港當下性", "evidence": "例：受眾分析指出港人對收樓有集體焦慮", "how_to_execute": "例：開場用一單真實收樓場面鉤住觀眾"}}], "one_line_pitch": "例：呢個係一代人同一個時代的告別儀式"}}"""
+    return call_json("bull_researcher", sys_, usr, 0.5, 6000, trace, required=["arguments"])
 
 
 def bear_researcher(logline: str, genre: str, analyses: dict, trace: list) -> dict:
     sys_ = "你係編劇室嘅挑刺派研究員（Bear Researcher）。你嘅職責係搵出呢個故事最易寫壞嘅位。不留情面，但每個批評都要附補救方案。只輸出 JSON。"
-    usr = f"""Logline：{logline}
+    usr = f"""【輸出合約】淨係輸出一個 JSON object。頂層 keys 必須係 ["risks", "kill_shot"]。
+- "risks" = array，必須有 3 個 object，每個 object 有 "risk" / "why_it_fails" / "remedy" 三個非空字串
+- "kill_shot" = 一個非空字串
+- 之前之後唔可以有任何文字，第一個字元必須係 {{
+
+Logline：{logline}
 類型：{genre}
 分析師報告：{json.dumps(analyses, ensure_ascii=False)}
 
-提出三個最大嘅「會寫壞」風險，輸出 JSON：
-{{
-  "risks": [
-    {{"risk": "", "why_it_fails": "點解會死（引用分析師報告/類型常識）", "remedy": "具體補救方案"}},
-    {{"risk": "", "why_it_fails": "", "remedy": ""}},
-    {{"risk": "", "why_it_fails": "", "remedy": ""}}
-  ],
-  "kill_shot": "如果只可以改一樣嘢，改呢樣："
-}}"""
-    return call_json("bear_researcher", sys_, usr, 0.5, 3000, trace, required=["risks"])
+提出三個最大嘅「會寫壞」風險，不留情面，但每個批評都要附補救方案。
+結構示例（內容只係示意，唔好照抄）：
+{{"risks": [{{"risk": "例：殯儀館題材易變獵奇展覽", "why_it_fails": "例：失去對死亡嘅尊重就冇戲可做", "remedy": "例：所有靈堂戲用固定長鏡頭，唔剪接渲染"}}], "kill_shot": "例：主角同阿媽嘅感情線唔夠深，補一場生前遺願戲先落筆"}}"""
+    return call_json("bear_researcher", sys_, usr, 0.5, 6000, trace, required=["risks"])
 
 
 # ── 統籌拍板（temp 0.2 — 委員會終結者）───────────────────
@@ -208,7 +206,7 @@ def script_manager(logline: str, genre: str, master_name: str, analyses: dict,
   "protagonist_lock": {{"name": "", "desire": "", "flaw": ""}},
   "tone": ""
 }}"""
-    return call_json("script_manager", sys_, usr, 0.2, 4000, trace, required=["decisions", "beat_sheet"])
+    return call_json("script_manager", sys_, usr, 0.2, 8000, trace, required=["decisions", "beat_sheet"])
 
 
 # ── 主筆編劇（唯一執筆者 · temp 0.8）─────────────────────
@@ -238,7 +236,7 @@ def head_writer_outline(logline: str, genre: str, master_name: str, directive: d
   ],
   "series_engine": "如果拍成劇集，呢個故事嘅持續引擎係乜"
 }}"""
-    return call_json("head_writer_outline", sys_, usr, 0.7, 6000, trace, required=["title", "scenes"])
+    return call_json("head_writer_outline", sys_, usr, 0.7, 8000, trace, required=["title", "scenes"])
 
 
 def head_writer_scene(logline: str, genre: str, master_name: str, directive: dict,
@@ -262,7 +260,7 @@ def head_writer_scene(logline: str, genre: str, master_name: str, directive: dic
 3. 大師手法嘅對白法則全程生效
 4. 動作描寫係畫面（可拍），唔係小說心理描寫
 5. 場景 heading 用標準格式：INT./EXT. 地點 - 日/夜"""
-    return call_agent("head_writer_scene", sys_, usr, 0.8, 8000, trace)
+    return call_agent("head_writer_scene", sys_, usr, 0.8, 10000, trace)
 
 
 # ── 監製風控組（temp 0.1 — 求穩）─────────────────────────
@@ -288,7 +286,7 @@ def risk_team(logline: str, directive: dict, outline: dict, scene_text: str,
   "greenlights": ["明顯過關嘅位"],
   "overall": "一段總結"
 }}"""
-    return wrap_list(call_json("risk_team", sys_, usr, 0.1, 3000, trace), "flags")
+    return wrap_list(call_json("risk_team", sys_, usr, 0.1, 6000, trace), "flags")
 
 
 # ── Showrunner 終審（temp 0.2）───────────────────────────
@@ -314,7 +312,7 @@ def showrunner(logline: str, genre: str, master_name: str, directive: dict,
   "revision_notes": ["如果 REVISE，要改乜（PASS 就空 array）"],
   "next_episode_hook": "呢集寫完，下一場最想睇乜"
 }}"""
-    return call_json("showrunner", sys_, usr, 0.2, 3000, trace, required=["decision", "scores"])
+    return call_json("showrunner", sys_, usr, 0.2, 6000, trace, required=["decision", "scores"])
 
 
 # ── 模擬圍讀（temp 0.7 — 反饋迴路）───────────────────────
@@ -338,4 +336,4 @@ Showrunner 判決：{json.dumps(verdict, ensure_ascii=False)}
   "veteran_actor": {{"reaction": "", "mouth_feel": "對白讀出口嘅手感", "worry": ""}},
   "room_temperature": "成個房嘅溫度總結（一句）"
 }}"""
-    return call_json("table_read", sys_, usr, 0.7, 3000, trace, required=["audience", "line_producer", "veteran_actor"])
+    return call_json("table_read", sys_, usr, 0.7, 6000, trace, required=["audience", "line_producer", "veteran_actor"])
